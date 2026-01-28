@@ -43,12 +43,11 @@ end
     else
         Akl = (k+2) * (k+1) * A_kl(ν, k+2, l, vcoeffs)
         # Terminate sum for a finite number of terms in the potential
-        lmin = min(l, length(vcoeffs)-1)
-        for n=1:lmin
-            if !iszero(vcoeffs[n+1])
-                Akl += -2 * vcoeffs[n+1] * A_kl(ν, k-n-2, l-n, vcoeffs)
-            end
+        for n=1:l
             Akl += 2 * ε_l(ν, n, vcoeffs) * A_kl(ν, k, l-n, vcoeffs)
+            if n+1 > length(vcoeffs) continue end
+            if iszero(vcoeffs[n+1]) continue end
+            Akl += -2 * vcoeffs[n+1] * A_kl(ν, k-n-2, l-n, vcoeffs)
         end
         return Akl / (2 * ω * (k - ν))
     end
