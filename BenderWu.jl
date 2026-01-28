@@ -2,7 +2,7 @@
 # [1608.08256]
 
 # Maximum number K_l
-function max_kl(ν::Int, l::Int, vcoeffs)
+function max_k(ν::Int, l::Int, vcoeffs)
     L = findfirst(!iszero, vcoeffs[2:end]) - 1
     if 0 <= l < L
         if iszero(l)
@@ -18,7 +18,7 @@ end
 function A_kl(ν::Int, k::Int, l::Int, vcoeffs)
     ω = sqrt(2 * vcoeffs[1])
     # Maximum value for k
-    if k > max_kl(ν, l, vcoeffs) return 0.0 end
+    if k > max_k(ν, l, vcoeffs) return 0.0 end
     if k > ν && iszero(l) return 0.0 end
     if k == ν && iszero(l) return 1.0 end
     if k == ν && l > 0 return 0.0 end
@@ -39,8 +39,7 @@ function A_kl(ν::Int, k::Int, l::Int, vcoeffs)
         end
         
         return Akl / (2 * ω * (k - ν))
-    end
-    if k < ν && l > 0
+    else
         Akl = (k+2) * (k+1) * A_kl(ν, k+2, l, vcoeffs)
         # Terminate sum for a finite number of terms in the potential
         lmin = min(l, length(vcoeffs)-1)
@@ -65,4 +64,4 @@ function ε_l(ν::Int, l::Int, vcoeffs)
         ε += vcoeffs[n+1] * A_kl(ν, ν-n-2, l-n, vcoeffs)
     end
     return ε
-end 
+end
