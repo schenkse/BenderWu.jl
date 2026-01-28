@@ -15,17 +15,17 @@
     end
 end
 
-@memoize Dict function A_kl(ν::Int, k::Int, l::Int, vcoeffs)
+@memoize function A_kl(ν::Int, k::Int, l::Int, vcoeffs)
     ω = sqrt(2 * vcoeffs[1])
 
     # Minimum value for k or l
-    if k < 0 || l < 0 return 0.0 end
+    if k < 0 || l < 0 return zero(ω) end
 
     # Maximum value for k
-    if k > max_k(ν, l, vcoeffs) return 0.0 end
-    if k > ν && iszero(l) return 0.0 end
-    if k == ν && iszero(l) return 1.0 end
-    if k == ν && l > 0 return 0.0 end
+    if k > max_k(ν, l, vcoeffs) return zero(ω) end
+    if k > ν && iszero(l) return zero(ω) end
+    if k == ν && iszero(l) return one(ω) end
+    if k == ν && l > 0 return zero(ω) end
     
     if k > ν && l > 0
         Akl = (k+2) * (k+1) * A_kl(ν, k+2, l, vcoeffs)
@@ -53,7 +53,7 @@ end
     end
 end
 
-@memoize Dict function ε_l(ν::Int, l::Int, vcoeffs)
+@memoize function ε_l(ν::Int, l::Int, vcoeffs)
     ω = sqrt(2 * vcoeffs[1])
     if iszero(l) return ω * (ν + 1/2) end
     ε = -(ν+2) * (ν+1) / 2 * A_kl(ν, ν+2, l, vcoeffs)
