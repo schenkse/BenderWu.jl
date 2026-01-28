@@ -90,7 +90,6 @@ function fill_Akl!(Akl, ε, ν::Int, maxorder::Int, vcoeffs)
                 for n=1:l
                     # Check index bounds
                     if n+1 > length(vcoeffs) || k-n-2 < 0 continue end
-                    #if iszero(vcoeffs[n+1]) continue end
                     Akl[k+1, l+1] += -2 * vcoeffs[n+1] * Akl[k-n-2+1, l-n+1]
                 end
                 Akl[k+1, l+1] /= 2 * ω * (k - ν)
@@ -100,7 +99,6 @@ function fill_Akl!(Akl, ε, ν::Int, maxorder::Int, vcoeffs)
         if l > 0
             ε[l+1] += -(ν+2) * (ν+1) / 2 * Akl[ν+2+1, l+1]
             for n=1:l
-                #if iszero(vcoeffs[n+1]) continue end
                 # Check index bounds
                 if n+1 > length(vcoeffs) || ν-n-2 < 0 continue end
                 ε[l+1] += vcoeffs[n+1] * Akl[ν-n-2+1, l-n+1]
@@ -111,7 +109,6 @@ function fill_Akl!(Akl, ε, ν::Int, maxorder::Int, vcoeffs)
             Akl[k+1, l+1] += (k+2) * (k+1) * Akl[k+2+1, l+1]
             for n=1:l
                 Akl[k+1, l+1] += 2 * ε[n+1] * Akl[k+1, l-n+1]
-                #if iszero(vcoeffs[n+1]) continue end
                 # Check index bounds
                 if n+1 > length(vcoeffs) || k-n-2 < 0 continue end
                 Akl[k+1, l+1] += -2 * vcoeffs[n+1] * Akl[k-n-2+1, l-n+1]
