@@ -2,8 +2,8 @@
 # [1608.08256]
 
 # Maximum number K_l
-@memoize Dict function max_k(ν::Int, l::Int, vcoeffs)
-    L = findfirst(!iszero, vcoeffs[2:end]) - 1
+@memoize function max_k(ν::Int, l::Int, vcoeffs)
+    L = findfirst(!iszero, vcoeffs[2:end])
     if 0 <= l < L
         if iszero(l)
             return ν
