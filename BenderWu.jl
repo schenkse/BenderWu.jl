@@ -118,3 +118,15 @@ function fill_Akl!(Akl, ε, ν::Int, maxorder::Int, vcoeffs)
     end
     nothing
 end
+
+# Fit polynomial to energy coefficients
+function find_epoly(order::Int, vcoeffs)
+    if isodd(order)
+        return zeros(floor(Int, order/2) + 2)
+    end
+    # At order l we need to compute l+2 terms in total
+    l = Int(order/2)
+    ε_n = [ε_l(n, order, vcoeffs) for n=0:l+1]
+    N_mat = [1.0*n^j for n=0:l+1, j=0:l+1]
+    return N_mat \ ε_n
+end
