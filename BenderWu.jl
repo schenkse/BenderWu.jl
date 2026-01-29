@@ -71,7 +71,7 @@ function initialize_Akl(ν::Int, l::Int, vcoeffs)
     kmax = max_k(ν, l, vcoeffs)
     return zeros(kmax+3, l+1)
 end
-initialize_eps(ν::Int, l::Int) = zeros(l+1)
+initialize_eps(l::Int) = zeros(l+1)
 
 function fill_Akl!(Akl, ε, ν::Int, maxorder::Int, vcoeffs)
     ω = sqrt(2.0 * vcoeffs[1])
