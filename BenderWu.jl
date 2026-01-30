@@ -22,26 +22,24 @@ end
     if k < 0 || l < 0 return zero(ω) end
 
     # Maximum value for k
-    if k > max_k(ν, l, vcoeffs) return zero(ω) end
     if k > ν && iszero(l) return zero(ω) end
     if k == ν && iszero(l) return one(ω) end
     if k == ν && l > 0 return zero(ω) end
+    if k > max_k(ν, l, vcoeffs) return zero(ω) end
     
+    Akl = zero(ω)
+    Akl += (k+2) * (k+1) * A_kl(ν, k+2, l, vcoeffs)
     if k > ν && l > 0
-        Akl = (k+2) * (k+1) * A_kl(ν, k+2, l, vcoeffs)
         # Terminate sum for a finite number of terms in the potential
-        lmin = min(l, length(vcoeffs)-1)
-        for n=1:lmin
+        for n=1:l
+            if n != l
+                Akl += 2 * ε_l(ν, n, vcoeffs) * A_kl(ν, k, l-n, vcoeffs)
+            end
+            if n+1 > length(vcoeffs) continue end
             if iszero(vcoeffs[n+1]) continue end
             Akl += -2 * vcoeffs[n+1] * A_kl(ν, k-n-2, l-n, vcoeffs)
         end
-        for n=1:l-1
-            Akl += 2 * ε_l(ν, n, vcoeffs) * A_kl(ν, k, l-n, vcoeffs)
-        end
-        
-        return Akl / (2 * ω * (k - ν))
     else
-        Akl = (k+2) * (k+1) * A_kl(ν, k+2, l, vcoeffs)
         # Terminate sum for a finite number of terms in the potential
         for n=1:l
             Akl += 2 * ε_l(ν, n, vcoeffs) * A_kl(ν, k, l-n, vcoeffs)
@@ -49,17 +47,18 @@ end
             if iszero(vcoeffs[n+1]) continue end
             Akl += -2 * vcoeffs[n+1] * A_kl(ν, k-n-2, l-n, vcoeffs)
         end
-        return Akl / (2 * ω * (k - ν))
     end
+    return Akl / (2 * ω * (k - ν))
 end
 
 @memoize function ε_l(ν::Int, l::Int, vcoeffs)
     ω = sqrt(2 * vcoeffs[1])
+    if isodd(l) return zero(ω) end
     if iszero(l) return ω * (ν + 1/2) end
     ε = -(ν+2) * (ν+1) / 2 * A_kl(ν, ν+2, l, vcoeffs)
     # Terminate sum for a finite number of terms in the potential
-    lmin = min(l, length(vcoeffs)-1)
-    for n=1:lmin
+    for n=1:l
+        if n+1 > length(vcoeffs) continue end
         if iszero(vcoeffs[n+1]) continue end
         ε += vcoeffs[n+1] * A_kl(ν, ν-n-2, l-n, vcoeffs)
     end
@@ -122,11 +121,11 @@ end
 # Fit polynomial to energy coefficients
 function find_epoly(order::Int, vcoeffs)
     if isodd(order)
-        return zeros(floor(Int, order/2) + 2)
+        return zeros(typeof(vcoeffs[1]), floor(Int, order/2) + 2)
     end
     # At order l we need to compute l+2 terms in total
     l = Int(order/2)
     ε_n = [ε_l(n, order, vcoeffs) for n=0:l+1]
-    N_mat = [1.0*n^j for n=0:l+1, j=0:l+1]
+    N_mat = [oftype(vcoeffs[1], n^j) for n=0:l+1, j=0:l+1]
     return N_mat \ ε_n
 end
