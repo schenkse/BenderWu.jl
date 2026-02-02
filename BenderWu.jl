@@ -27,8 +27,7 @@ end
     if k == ν && l > 0 return zero(ω) end
     if k > max_k(ν, l, vcoeffs) return zero(ω) end
     
-    Akl = zero(ω)
-    Akl += (k+2) * (k+1) * A_kl(ν, k+2, l, vcoeffs)
+    Akl = (k+2) * (k+1) * A_kl(ν, k+2, l, vcoeffs)
     if k > ν && l > 0
         # Terminate sum for a finite number of terms in the potential
         for n=1:l
