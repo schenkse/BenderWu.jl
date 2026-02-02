@@ -66,16 +66,16 @@ end
 end
 
 # Here goes some iterative solution to the same problem
-function initialize_Akl(ν::Int, l::Int, vcoeffs)
+function initialize_Akl_eps(ν::Int, l::Int, vcoeffs)
     kmax = max_k(ν, l, vcoeffs)
-    return zeros(kmax+3, l+1)
+    otype = typeof(vcoeffs[1])
+    return zeros(otype, kmax+3, l+1), zeros(otype, l+1)
 end
-initialize_eps(l::Int) = zeros(l+1)
 
 function fill_Akl!(Akl, ε, ν::Int, maxorder::Int, vcoeffs)
-    ω = sqrt(2.0 * vcoeffs[1])
+    ω = sqrt(2 * vcoeffs[1])
     # Be careful with indexing here
-    Akl[ν+1, 1] = 1.0
+    Akl[ν+1, 1] = one(ω)
     ε[1] = ω * (ν + 1/2)
     for l=0:maxorder
         kmax = max_k(ν, l, vcoeffs)
