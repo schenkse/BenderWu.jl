@@ -128,3 +128,13 @@ function find_epoly(order::Int, vcoeffs)
     N_mat = [oftype(vcoeffs[1], n^j) for n=0:l+1, j=0:l+1]
     return N_mat \ ε_n
 end
+
+function find_epoly_derivative(epoly)
+    otype = typeof(epoly[1])
+    ds = Array{otype}(undef, length(epoly)-1)
+    for (n, ε) in enumerate(epoly)
+        if isone(n) continue end
+        ds[n-1] = n >= 20 ? factorial(big(n-1)) * ε : factorial(n-1) * ε
+    end
+    return ds
+end
