@@ -39,4 +39,13 @@ using BenderWu
         @test ε_l(pot, 0, 2) ≈ 3/4
     end
 
+    @testset "Rational arithmetic (exact results)" begin
+        pot_r = Potential([1//2, 0//1, 1//1])
+        @test ε_l(pot_r, 0, 0) == 1//2
+        @test ε_l(pot_r, 1, 0) == 3//2
+        @test ε_l(pot_r, 0, 2) == 3//4
+        @test ε_l(pot_r, 1, 2) == 15//4
+        @test ε_l(pot_r, 2, 2) == 39//4
+    end
+
 end

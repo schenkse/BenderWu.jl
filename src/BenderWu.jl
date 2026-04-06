@@ -60,6 +60,16 @@ function max_k(pot::Potential, ν::Int, l::Int)
     end
 end
 
+function _compute_ω(v::Rational{T}) where T
+    two_v = 2 * v
+    n, d = numerator(two_v), denominator(two_v)
+    sn, sd = isqrt(n), isqrt(d)
+    sn^2 == n && sd^2 == d ||
+        error("2·vcoeffs[1] = $two_v is not a perfect rational square; ω is irrational")
+    return Rational{T}(sn, sd)
+end
+_compute_ω(v) = sqrt(2 * v)
+
 """
     A_kl(pot, ν, k, l)
 
@@ -86,7 +96,7 @@ function A_kl(pot::Potential, ν::Int, k::Int, l::Int)
 
     get!(pot._Akl_cache, (ν, k, l)) do
         vcoeffs = pot.vcoeffs
-        ω = sqrt(2 * vcoeffs[1])
+        ω = _compute_ω(vcoeffs[1])
         Akl = (k+2) * (k+1) * A_kl(pot, ν, k+2, l)
         if k > ν && l > 0
             # Terminate sum for a finite number of terms in the potential
@@ -123,7 +133,7 @@ cached inside `pot`.
 """
 function ε_l(pot::Potential, ν::Int, l::Int)
     T = eltype(pot.vcoeffs)
-    ω = sqrt(2 * pot.vcoeffs[1])
+    ω = _compute_ω(pot.vcoeffs[1])
 
     # Cheap boundary cases — not worth caching
     if isodd(l) return zero(T) end
@@ -131,7 +141,7 @@ function ε_l(pot::Potential, ν::Int, l::Int)
 
     get!(pot._εl_cache, (ν, l)) do
         vcoeffs = pot.vcoeffs
-        ε = -(ν+2) * (ν+1) / 2 * A_kl(pot, ν, ν+2, l)
+        ε = -(ν+2) * (ν+1) ÷ 2 * A_kl(pot, ν, ν+2, l)
         # Terminate sum for a finite number of terms in the potential
         for n=1:l
             if n+1 > length(vcoeffs) continue end
@@ -178,10 +188,10 @@ at order l, and `ε[l+1]` holds the energy correction at order l.
 """
 function fill_Akl!(Akl, ε, pot::Potential, ν::Int, maxorder::Int)
     vcoeffs = pot.vcoeffs
-    ω = sqrt(2 * vcoeffs[1])
+    ω = _compute_ω(vcoeffs[1])
     # Be careful with indexing here
     Akl[ν+1, 1] = one(ω)
-    ε[1] = ω * (ν + 1/2)
+    ε[1] = ω * (ν + one(eltype(vcoeffs))/2)
     for l=0:maxorder
         kmax = max_k(pot, ν, l)
         # Step 1
@@ -201,7 +211,7 @@ function fill_Akl!(Akl, ε, pot::Potential, ν::Int, maxorder::Int)
         end
         # Step 2
         if l > 0
-            ε[l+1] += -(ν+2) * (ν+1) / 2 * Akl[ν+2+1, l+1]
+            ε[l+1] += -(ν+2) * (ν+1) ÷ 2 * Akl[ν+2+1, l+1]
             for n=1:l
                 # Check index bounds
                 if n+1 > length(vcoeffs) || ν-n-2 < 0 continue end
