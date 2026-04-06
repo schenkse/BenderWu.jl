@@ -43,6 +43,16 @@ evaluate_epoly(3, epoly)         # evaluate at ν=3
 ε_polys = [find_epoly(n, pot) for n = 0:50]
 ```
 
+**Exact rational arithmetic** — pass `Rational` coefficients:
+
+```julia
+pot_r = Potential([1//2, 0//1, 1//1])
+ε_l(pot_r, 0, 2)   # → 3//4  (exact, not 0.75)
+ε_l(pot_r, 1, 2)   # → 15//4
+```
+
+The leading coefficient must satisfy $2 \cdot \texttt{vcoeffs}[1]$ being a perfect rational square (so that $\omega$ is rational). For $V = \frac{1}{2}x^2 + x^4$ this gives $\omega = 1$.
+
 **Arbitrary precision** — pass `BigFloat` coefficients:
 
 ```julia
@@ -50,7 +60,7 @@ pot_bf = Potential(BigFloat.([0.5, 0.0, 1.0]))
 ε_polys_bf = [find_epoly(n, pot_bf) for n = 0:50]
 ```
 
-Float64 and BigFloat potentials have independent caches; no manual flushing needed.
+Float64, BigFloat, and Rational potentials have independent caches; no manual flushing needed.
 
 **Derivative of the energy polynomial** (Taylor coefficients at ν=0):
 
