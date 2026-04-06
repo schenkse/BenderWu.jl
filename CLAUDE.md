@@ -43,29 +43,31 @@ All code lives in `BenderWu.jl`. The algorithm computes perturbative corrections
 
 ### Key Abstractions
 
-- **`vcoeffs`** — potential polynomial coefficients, e.g. `[0.5, 0.0, 1.0]` for $V = 0.5x^0 + x^2$. The first coefficient sets $\omega = \sqrt{2 \cdot \text{vcoeffs}[1]}$.
+- **`Potential{T}`** — wraps `vcoeffs` (potential polynomial coefficients) and owns its own memoization caches. Create one per potential and reuse it. Cache lifetime is GC-managed.
+  - `vcoeffs[n]` is the coefficient of $x^{n-1}$, e.g. `Potential([0.5, 0.0, 1.0])` for $V = \frac{1}{2}x^2 + x^4$
+  - The first coefficient sets $\omega = \sqrt{2 \cdot \text{vcoeffs}[1]}$
 - **`ν`** — quantum number (energy level index, 0-based)
 - **`l`** — perturbation order (only even orders contribute; odd orders return zero)
 
-### Recursive (memoized) implementation
+### Recursive (cached) implementation
 
-- `max_k(ν, l, vcoeffs)` — upper bound on k-index at perturbation order `l`
-- `A_kl(ν, k, l, vcoeffs)` — wave function expansion coefficient; memoized with `@memoize`, mutually recursive with `ε_l`
-- `ε_l(ν, l, vcoeffs)` — energy correction at order `l`; memoized, mutually recursive with `A_kl`
+- `max_k(pot, ν, l)` — upper bound on k-index at perturbation order `l`
+- `A_kl(pot, ν, k, l)` — wave function expansion coefficient; cached in `pot._Akl_cache`, mutually recursive with `ε_l`
+- `ε_l(pot, ν, l)` — energy correction at order `l`; cached in `pot._εl_cache`, mutually recursive with `A_kl`
 
-`@memoize` caches calls globally per Julia session. Call `Memoize.empty_all_caches!()` when changing `vcoeffs` or switching precision (Float64 vs BigFloat).
+Float64 and BigFloat `Potential` objects have fully independent caches. No manual flushing needed.
 
 ### Iterative (type-stable) implementation
 
-- `initialize_Akl_eps(ν, l, vcoeffs)` — pre-allocates arrays; output type is inferred from `vcoeffs[1]`
-- `fill_Akl!(Akl, ε, ν, maxorder, vcoeffs)` — fills arrays in-place following three steps per order: compute `Akl` for k > ν, compute `ε`, compute `Akl` for k < ν
+- `initialize_Akl_eps(pot, ν, l)` — pre-allocates arrays; output type is inferred from `eltype(pot.vcoeffs)`
+- `fill_Akl!(Akl, ε, pot, ν, maxorder)` — fills arrays in-place following three steps per order: compute `Akl` for k > ν, compute `ε`, compute `Akl` for k < ν
 
 ### Energy polynomial fitting
 
-- `find_epoly(order, vcoeffs)` — solves a linear system to express $\varepsilon(\nu)$ at perturbation `order` as a polynomial in $\nu$; returns coefficient vector
+- `find_epoly(order, pot)` — solves a linear system to express $\varepsilon(\nu)$ at perturbation `order` as a polynomial in $\nu$; returns coefficient vector
 - `find_epoly_derivative(epoly)` — differentiates the polynomial (uses `big` factorial for orders ≥ 20)
 - `evaluate_epoly(n, epoly)` — evaluates the polynomial at a given $\nu = n$
 
 ### Precision
 
-Pass `BigFloat` coefficients (e.g. `[big(0.5), big(0.0), big(1.0)]`) to get arbitrary-precision results throughout all functions. The output type is always inferred from `vcoeffs[1]`.
+Pass `BigFloat` coefficients to get arbitrary-precision results: `Potential(BigFloat.([0.5, 0.0, 1.0]))`. The output type is always inferred from `eltype(pot.vcoeffs)`.
