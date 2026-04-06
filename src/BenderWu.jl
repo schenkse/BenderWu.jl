@@ -1,5 +1,13 @@
-# Helper functions
-# [1608.08256]
+module BenderWu
+
+# Bender-Wu method for perturbative energy levels of polynomial potentials
+# Reference: arXiv:1608.08256
+
+using Memoize
+
+export max_k, A_kl, ε_l
+export initialize_Akl_eps, fill_Akl!
+export find_epoly, find_epoly_derivative, evaluate_epoly
 
 # Maximum number K_l
 @memoize function max_k(ν::Int, l::Int, vcoeffs)
@@ -26,7 +34,7 @@ end
     if k == ν && iszero(l) return one(ω) end
     if k == ν && l > 0 return zero(ω) end
     if k > max_k(ν, l, vcoeffs) return zero(ω) end
-    
+
     Akl = (k+2) * (k+1) * A_kl(ν, k+2, l, vcoeffs)
     if k > ν && l > 0
         # Terminate sum for a finite number of terms in the potential
@@ -146,3 +154,5 @@ function evaluate_epoly(n::Int, epoly)
     end
     return res
 end
+
+end # module BenderWu
