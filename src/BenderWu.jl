@@ -35,7 +35,15 @@ Potential(vcoeffs::AbstractVector{T}) where T = Potential(
     Dict{Tuple{Int,Int}, T}()
 )
 
-# Maximum number K_l
+"""
+    max_k(pot, ν, l)
+
+Return the maximum k-index K_l^(ν) at perturbation order `l` for quantum number `ν`.
+
+K_l^(ν) bounds the support of the wave function coefficients A_{k,l}^(ν): all
+coefficients with k > K_l^(ν) vanish. This bound depends on the degree of the
+leading perturbation term in `pot`.
+"""
 function max_k(pot::Potential, ν::Int, l::Int)
     get!(pot._max_k_cache, (ν, l)) do
         vcoeffs = pot.vcoeffs
@@ -52,6 +60,20 @@ function max_k(pot::Potential, ν::Int, l::Int)
     end
 end
 
+"""
+    A_kl(pot, ν, k, l)
+
+Return the wave function expansion coefficient A_{k,l}^(ν).
+
+These are the coefficients of the perturbative expansion of the ν-th eigenstate
+in the harmonic oscillator basis, at perturbation order `l`. They satisfy a
+recursive relation coupling different orders and indices; results are cached
+inside `pot`.
+
+Boundary conditions:
+- Returns `zero` for k < 0, l < 0, or k > K_l^(ν)
+- Returns `one` for k == ν, l == 0 (normalisation)
+"""
 function A_kl(pot::Potential, ν::Int, k::Int, l::Int)
     T = eltype(pot.vcoeffs)
 
@@ -89,6 +111,16 @@ function A_kl(pot::Potential, ν::Int, k::Int, l::Int)
     end
 end
 
+"""
+    ε_l(pot, ν, l)
+
+Return the perturbative energy correction ε_l^(ν) for quantum number `ν` at
+perturbation order `l`.
+
+Odd orders vanish identically. Order l=0 returns the unperturbed harmonic
+energy ω·(ν + 1/2), where ω = √(2·vcoeffs[1]). Results for even orders are
+cached inside `pot`.
+"""
 function ε_l(pot::Potential, ν::Int, l::Int)
     T = eltype(pot.vcoeffs)
     ω = sqrt(2 * pot.vcoeffs[1])
@@ -110,13 +142,40 @@ function ε_l(pot::Potential, ν::Int, l::Int)
     end
 end
 
-# Iterative solution
+"""
+    initialize_Akl_eps(pot, ν, l)
+
+Allocate and return zero-initialised arrays `(Akl, ε)` sized for the iterative
+computation up to perturbation order `l` for quantum number `ν`.
+
+`Akl` has dimensions `(K_l^(ν) + 3) × (l + 1)` and `ε` has length `l + 1`.
+Element type matches `eltype(pot.vcoeffs)`. Pass these arrays to `fill_Akl!`.
+"""
 function initialize_Akl_eps(pot::Potential, ν::Int, l::Int)
     kmax = max_k(pot, ν, l)
     T = eltype(pot.vcoeffs)
     return zeros(T, kmax+3, l+1), zeros(T, l+1)
 end
 
+"""
+    fill_Akl!(Akl, ε, pot, ν, maxorder)
+
+Fill pre-allocated arrays `Akl` and `ε` in-place with wave function coefficients
+and energy corrections up to perturbation order `maxorder` for quantum number `ν`.
+
+This is a non-recursive, type-stable alternative to the cached `A_kl`/`ε_l`
+functions. Each order `l` is computed in three steps:
+
+1. Compute `Akl[k, l]` for k > ν (descending from K_l^(ν))
+2. Compute `ε[l]` from the boundary condition at k = ν
+3. Compute `Akl[k, l]` for k < ν (descending from ν−1)
+
+Use `initialize_Akl_eps` to allocate arrays of the correct size.
+
+# Note
+Array indexing is 1-based: `Akl[k+1, l+1]` holds the coefficient for index k
+at order l, and `ε[l+1]` holds the energy correction at order l.
+"""
 function fill_Akl!(Akl, ε, pot::Potential, ν::Int, maxorder::Int)
     vcoeffs = pot.vcoeffs
     ω = sqrt(2 * vcoeffs[1])
@@ -164,7 +223,27 @@ function fill_Akl!(Akl, ε, pot::Potential, ν::Int, maxorder::Int)
     nothing
 end
 
-# Fit polynomial to energy coefficients
+"""
+    find_epoly(order, pot)
+
+Return the coefficients of the energy polynomial ε^(order)(ν) at perturbation
+order `order`.
+
+The energy eigenvalue at perturbation order `order` is a polynomial in the
+quantum number ν. This function evaluates ε_l^(ν) at `order/2 + 2` values of ν
+and solves the resulting Vandermonde system to recover the polynomial coefficients.
+
+Returns a zero vector for odd `order` (all odd-order corrections vanish).
+The element type matches `eltype(pot.vcoeffs)`, so pass a `BigFloat`-based
+`Potential` for arbitrary-precision results.
+
+# Example
+```julia
+pot   = Potential([0.5, 0.0, 1.0])
+epoly = find_epoly(2, pot)          # first correction for quartic oscillator
+evaluate_epoly(3, epoly)            # energy correction at ν = 3
+```
+"""
 function find_epoly(order::Int, pot::Potential)
     if isodd(order)
         return zeros(eltype(pot.vcoeffs), floor(Int, order/2) + 2)
@@ -176,6 +255,17 @@ function find_epoly(order::Int, pot::Potential)
     return N_mat \ ε_n
 end
 
+"""
+    find_epoly_derivative(epoly)
+
+Return the Taylor coefficients of the derivative of the energy polynomial `epoly`
+with respect to ν, evaluated at ν = 0.
+
+Given `epoly` with coefficients [c_0, c_1, ..., c_n] representing the polynomial
+∑ c_k · ν^(k-1), the k-th output element is (k-1)! · c_k, i.e. the (k-1)-th
+derivative at ν = 0. Uses arbitrary-precision factorials for coefficients beyond
+index 20 to avoid overflow.
+"""
 function find_epoly_derivative(epoly)
     otype = typeof(epoly[1])
     ds = Array{otype}(undef, length(epoly)-1)
@@ -186,6 +276,14 @@ function find_epoly_derivative(epoly)
     return ds
 end
 
+"""
+    evaluate_epoly(n, epoly)
+
+Evaluate the energy polynomial `epoly` at quantum number `n`.
+
+`epoly` is a coefficient vector [c_0, c_1, ..., c_m] representing
+∑_k c_k · n^(k-1).
+"""
 function evaluate_epoly(n::Int, epoly)
     res = zero(epoly[1])
     for (k, ε) in enumerate(epoly)
