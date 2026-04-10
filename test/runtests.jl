@@ -39,6 +39,31 @@ using BenderWu
         @test ε_l(pot, 0, 2) ≈ 3/4
     end
 
+    @testset "fill_Akl! matches recursive ε_l" begin
+        # Iterative and recursive implementations must agree on energy corrections
+        for ν in 0:3
+            maxorder = 4
+            Akl, ε_arr = initialize_Akl_eps(pot, ν, maxorder)
+            fill_Akl!(Akl, ε_arr, pot, ν, maxorder)
+            for l in 0:maxorder
+                @test ε_arr[l+1] ≈ ε_l(pot, ν, l)
+            end
+        end
+    end
+
+    @testset "find_epoly_derivative" begin
+        # For quartic V = x²/2 + x⁴, the order-2 energy polynomial is
+        # ε^(2)(ν) = (6ν² + 6ν + 3)/4 = (3/2)ν² + (3/2)ν + 3/4
+        # so epoly = [3/4, 3/2, 3/2] and derivative coefficients are:
+        # ds[1] = 1! * (3/2) = 1.5  (first derivative at ν=0)
+        # ds[2] = 2! * (3/2) = 3.0  (second derivative at ν=0)
+        epoly = find_epoly(2, pot)
+        ds = find_epoly_derivative(epoly)
+        @test length(ds) == length(epoly) - 1
+        @test ds[1] ≈ 1.5
+        @test ds[2] ≈ 3.0
+    end
+
     @testset "Rational arithmetic (exact results)" begin
         pot_r = Potential([1//2, 0//1, 1//1])
         # Integer-typed rationals are auto-promoted to Rational{BigInt}
