@@ -12,7 +12,7 @@ export find_epoly, find_epoly_derivative, evaluate_epoly
     Potential(vcoeffs)
 
 Represents a polynomial potential with coefficients `vcoeffs`, where `vcoeffs[n]`
-is the coefficient of x^(n-1). Carries its own memoization caches, which are
+is the coefficient of x^(n+1). Carries its own memoization caches, which are
 GC-managed — create one instance per potential and reuse it across calls.
 
 `Rational{Int64}` (and any `Rational{<:Base.BitInteger}`) coefficients are
@@ -21,7 +21,7 @@ higher perturbation orders.
 
 # Example
 ```julia
-pot   = Potential([0.5, 0.0, 1.0])        # Float64, V(x) = x²/2 + x⁴
+pot   = Potential([0.5, 0.0, 1.0])        # Float64, V(x) = 0.5x² + x⁴
 pot_r = Potential([1//2, 0//1, 1//1])     # Rational — auto-promoted to Rational{BigInt}
 epoly = find_epoly(2, pot)
 ```

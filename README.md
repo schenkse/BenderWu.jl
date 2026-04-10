@@ -13,7 +13,7 @@ using BenderWu
 
 ## Usage
 
-A potential is represented by a `Potential` object constructed from a coefficient vector, where `vcoeffs[n]` is the coefficient of $x^{n-1}$. For example, `[0.5, 0.0, 1.0]` encodes $V(x) = \frac{1}{2}x^2 + x^4$ (quartic oscillator with $\omega = 1$).
+A potential is represented by a `Potential` object constructed from a coefficient vector, where `vcoeffs[n]` is the coefficient of $x^{n+1}$. For example, `[0.5, 0.0, 1.0]` encodes $V(x) = \frac{1}{2}x^2 + x^4$ (quartic oscillator with $\omega = 1$).
 
 ```julia
 pot = Potential([0.5, 0.0, 1.0])
