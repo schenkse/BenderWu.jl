@@ -61,15 +61,7 @@ function max_k(pot::Potential, ν::Int, l::Int)
         # Pure harmonic oscillator: no perturbation terms, all higher-order
         # corrections vanish, so Kl = ν for l=0 and 0 otherwise.
         isnothing(L) && return iszero(l) ? ν : 0
-        if 0 <= l < L
-            if iszero(l)
-                return ν
-            else
-                return 0
-            end
-        elseif l >= L
-            return ν + (L + 2) * floor(Int, l / L) + l % L
-        end
+        l < L ? (iszero(l) ? ν : 0) : ν + (L + 2) * (l ÷ L) + l % L
     end
 end
 
