@@ -143,10 +143,10 @@ cached inside `pot`.
 """
 function ε_l(pot::Potential, ν::Int, l::Int)
     T = eltype(pot.vcoeffs)
-    ω = _compute_ω(pot.vcoeffs[1])
 
     # Cheap boundary cases — not worth caching
     if isodd(l) return zero(T) end
+    ω = _compute_ω(pot.vcoeffs[1])
     if iszero(l) return ω * (ν + one(T)/2) end
 
     get!(pot._εl_cache, (ν, l)) do
