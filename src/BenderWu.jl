@@ -263,10 +263,10 @@ evaluate_epoly(3, epoly)            # energy correction at ν = 3
 """
 function find_epoly(order::Int, pot::Potential)
     if isodd(order)
-        return zeros(eltype(pot.vcoeffs), floor(Int, order/2) + 2)
+        return zeros(eltype(pot.vcoeffs), order ÷ 2 + 2)
     end
     # At order l we need to compute l+2 terms in total
-    l = Int(order/2)
+    l = order ÷ 2
     ε_n = [ε_l(pot, n, order) for n=0:l+1]
     N_mat = [oftype(pot.vcoeffs[1], big(n)^j) for n=0:l+1, j=0:l+1]
     return N_mat \ ε_n
