@@ -59,7 +59,7 @@ leading perturbation term in `pot`.
 function max_k(pot::Potential, ν::Int, l::Int)
     get!(pot._max_k_cache, (ν, l)) do
         vcoeffs = pot.vcoeffs
-        L = findfirst(!iszero, vcoeffs[2:end])
+        L = findfirst(!iszero, @view vcoeffs[2:end])
         # Pure harmonic oscillator: no perturbation terms, all higher-order
         # corrections vanish, so Kl = ν for l=0 and 0 otherwise.
         isnothing(L) && return iszero(l) ? ν : 0
