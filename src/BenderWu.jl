@@ -15,9 +15,14 @@ Represents a polynomial potential with coefficients `vcoeffs`, where `vcoeffs[n]
 is the coefficient of x^(n-1). Carries its own memoization caches, which are
 GC-managed — create one instance per potential and reuse it across calls.
 
+`Rational{Int64}` (and any `Rational{<:Base.BitInteger}`) coefficients are
+automatically promoted to `Rational{BigInt}` to prevent integer overflow at
+higher perturbation orders.
+
 # Example
 ```julia
-pot = Potential([0.5, 0.0, 1.0])  # V(x) = x²/2 + x⁴
+pot   = Potential([0.5, 0.0, 1.0])        # Float64, V(x) = x²/2 + x⁴
+pot_r = Potential([1//2, 0//1, 1//1])     # Rational — auto-promoted to Rational{BigInt}
 epoly = find_epoly(2, pot)
 ```
 """
@@ -34,6 +39,11 @@ Potential(vcoeffs::AbstractVector{T}) where T = Potential(
     Dict{Tuple{Int,Int,Int}, T}(),
     Dict{Tuple{Int,Int}, T}()
 )
+
+# Promote fixed-width rational coefficients to Rational{BigInt} to prevent
+# integer overflow at higher perturbation orders.
+Potential(vcoeffs::AbstractVector{Rational{T}}) where {T <: Base.BitInteger} =
+    Potential(Rational{BigInt}.(vcoeffs))
 
 """
     max_k(pot, ν, l)
@@ -261,7 +271,7 @@ function find_epoly(order::Int, pot::Potential)
     # At order l we need to compute l+2 terms in total
     l = Int(order/2)
     ε_n = [ε_l(pot, n, order) for n=0:l+1]
-    N_mat = [oftype(pot.vcoeffs[1], n^j) for n=0:l+1, j=0:l+1]
+    N_mat = [oftype(pot.vcoeffs[1], big(n)^j) for n=0:l+1, j=0:l+1]
     return N_mat \ ε_n
 end
 

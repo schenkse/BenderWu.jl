@@ -15,7 +15,7 @@ Pkg.instantiate()
 using BenderWu
 ```
 
-Dependencies: `Memoize` (runtime), `BenchmarkTools` (dev/notebook only).
+Dependencies: none at runtime. `BenchmarkTools` is used in the notebook only.
 
 ## Running and Testing
 
@@ -39,7 +39,7 @@ jupyter notebook BenderWu_Interactive.ipynb
 
 ## Architecture
 
-All code lives in `BenderWu.jl`. The algorithm computes perturbative corrections to energy eigenvalues $E_\nu$ of a Hamiltonian with potential given by `vcoeffs` (a vector where `vcoeffs[n]` is the coefficient of $x^n$ in the potential).
+All code lives in `src/BenderWu.jl`. The algorithm computes perturbative corrections to energy eigenvalues $E_\nu$ of a Hamiltonian with potential given by `vcoeffs` (a vector where `vcoeffs[n]` is the coefficient of $x^{n-1}$ in the potential).
 
 ### Key Abstractions
 
@@ -55,8 +55,6 @@ All code lives in `BenderWu.jl`. The algorithm computes perturbative corrections
 - `A_kl(pot, ν, k, l)` — wave function expansion coefficient; cached in `pot._Akl_cache`, mutually recursive with `ε_l`
 - `ε_l(pot, ν, l)` — energy correction at order `l`; cached in `pot._εl_cache`, mutually recursive with `A_kl`
 
-Float64 and BigFloat `Potential` objects have fully independent caches. No manual flushing needed.
-
 ### Iterative (type-stable) implementation
 
 - `initialize_Akl_eps(pot, ν, l)` — pre-allocates arrays; output type is inferred from `eltype(pot.vcoeffs)`
@@ -68,6 +66,12 @@ Float64 and BigFloat `Potential` objects have fully independent caches. No manua
 - `find_epoly_derivative(epoly)` — differentiates the polynomial (uses `big` factorial for orders ≥ 20)
 - `evaluate_epoly(n, epoly)` — evaluates the polynomial at a given $\nu = n$
 
-### Precision
+### Precision and numeric types
 
-Pass `BigFloat` coefficients to get arbitrary-precision results: `Potential(BigFloat.([0.5, 0.0, 1.0]))`. The output type is always inferred from `eltype(pot.vcoeffs)`.
+The output type is always inferred from `eltype(pot.vcoeffs)`. Three modes are supported:
+
+- **Float64** (default): `Potential([0.5, 0.0, 1.0])`
+- **BigFloat** (arbitrary precision): `Potential(BigFloat.([0.5, 0.0, 1.0]))`
+- **Rational** (exact arithmetic): `Potential([1//2, 0//1, 1//1])` — integer-typed rationals (`Rational{Int64}` etc.) are automatically promoted to `Rational{BigInt}` to prevent overflow at higher perturbation orders.
+
+For rational potentials, `_compute_ω` is dispatched to an exact method that uses `isqrt` and validates that $2 \cdot \text{vcoeffs}[1]$ is a perfect square. Float64 and BigFloat `Potential` objects have fully independent caches; no manual flushing is needed.

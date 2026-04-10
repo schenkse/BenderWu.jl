@@ -41,11 +41,15 @@ using BenderWu
 
     @testset "Rational arithmetic (exact results)" begin
         pot_r = Potential([1//2, 0//1, 1//1])
+        # Integer-typed rationals are auto-promoted to Rational{BigInt}
+        @test eltype(pot_r.vcoeffs) == Rational{BigInt}
         @test ε_l(pot_r, 0, 0) == 1//2
         @test ε_l(pot_r, 1, 0) == 3//2
         @test ε_l(pot_r, 0, 2) == 3//4
         @test ε_l(pot_r, 1, 2) == 15//4
         @test ε_l(pot_r, 2, 2) == 39//4
+        # Order 14 must complete without OverflowError
+        @test length(find_epoly(14, pot_r)) == 9
     end
 
 end
