@@ -307,7 +307,7 @@ Evaluate the energy polynomial `epoly` at quantum number `n`.
 function evaluate_epoly(n::Int, epoly)
     res = zero(epoly[1])
     for (k, ε) in enumerate(epoly)
-        res += ε * n^(k-1)
+        res += ε * big(n)^(k-1)
     end
     return res
 end
