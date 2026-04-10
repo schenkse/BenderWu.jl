@@ -204,35 +204,35 @@ function fill_Akl!(Akl, ε, pot::Potential, ν::Int, maxorder::Int)
         # Step 1
         if l > 0
             for k=kmax:-1:ν+1
-                Akl[k+1, l+1] += (k+2) * (k+1) * Akl[k+2+1, l+1]
+                Akl[k+1, l+1] += (k+2) * (k+1) * Akl[(k+2)+1, l+1]
                 for n=1:l-1
                     Akl[k+1, l+1] += 2 * ε[n+1] * Akl[k+1, l-n+1]
                 end
                 for n=1:l
                     # Check index bounds
                     if n+1 > length(vcoeffs) || k-n-2 < 0 continue end
-                    Akl[k+1, l+1] += -2 * vcoeffs[n+1] * Akl[k-n-2+1, l-n+1]
+                    Akl[k+1, l+1] += -2 * vcoeffs[n+1] * Akl[(k-n-2)+1, l-n+1]
                 end
                 Akl[k+1, l+1] /= 2 * ω * (k - ν)
             end
         end
         # Step 2
         if l > 0
-            ε[l+1] += -(ν+2) * (ν+1) ÷ 2 * Akl[ν+2+1, l+1]
+            ε[l+1] += -(ν+2) * (ν+1) ÷ 2 * Akl[(ν+2)+1, l+1]
             for n=1:l
                 # Check index bounds
                 if n+1 > length(vcoeffs) || ν-n-2 < 0 continue end
-                ε[l+1] += vcoeffs[n+1] * Akl[ν-n-2+1, l-n+1]
+                ε[l+1] += vcoeffs[n+1] * Akl[(ν-n-2)+1, l-n+1]
             end
         end
         # Step 3
         for k=ν-1:-1:0
-            Akl[k+1, l+1] += (k+2) * (k+1) * Akl[k+2+1, l+1]
+            Akl[k+1, l+1] += (k+2) * (k+1) * Akl[(k+2)+1, l+1]
             for n=1:l
                 Akl[k+1, l+1] += 2 * ε[n+1] * Akl[k+1, l-n+1]
                 # Check index bounds
                 if n+1 > length(vcoeffs) || k-n-2 < 0 continue end
-                Akl[k+1, l+1] += -2 * vcoeffs[n+1] * Akl[k-n-2+1, l-n+1]
+                Akl[k+1, l+1] += -2 * vcoeffs[n+1] * Akl[(k-n-2)+1, l-n+1]
             end
             Akl[k+1, l+1] /= 2 * ω * (k - ν)
         end
