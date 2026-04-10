@@ -107,6 +107,10 @@ function A_kl(pot::Potential, ν::Int, k::Int, l::Int)
         Akl = (k+2) * (k+1) * A_kl(pot, ν, k+2, l)
         if k > ν && l > 0
             # Terminate sum for a finite number of terms in the potential
+            # n==l is excluded: it would require ε_l(pot, ν, l), which in turn
+            # calls A_kl(pot, ν, ν+2, l) — still being computed here. The term
+            # vanishes anyway (A_kl(pot, ν, k, 0) = 0 for k > ν), so skipping
+            # it avoids the circular call. fill_Akl! expresses this as 1:l-1.
             for n=1:l
                 if n != l
                     Akl += 2 * ε_l(pot, ν, n) * A_kl(pot, ν, k, l-n)
