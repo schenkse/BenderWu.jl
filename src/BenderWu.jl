@@ -28,6 +28,7 @@ epoly = find_epoly(2, pot)
 """
 struct Potential{T}
     vcoeffs::Vector{T}
+    ω::T
     _max_k_cache::Dict{Tuple{Int,Int}, Int}
     _Akl_cache::Dict{Tuple{Int,Int,Int}, T}
     _εl_cache::Dict{Tuple{Int,Int}, T}
@@ -35,6 +36,7 @@ end
 
 Potential(vcoeffs::AbstractVector{T}) where T = Potential(
     collect(T, vcoeffs),
+    _compute_ω(first(vcoeffs)),
     Dict{Tuple{Int,Int}, Int}(),
     Dict{Tuple{Int,Int,Int}, T}(),
     Dict{Tuple{Int,Int}, T}()
@@ -101,7 +103,7 @@ function A_kl(pot::Potential, ν::Int, k::Int, l::Int)
 
     get!(pot._Akl_cache, (ν, k, l)) do
         vcoeffs = pot.vcoeffs
-        ω = _compute_ω(vcoeffs[1])
+        ω = pot.ω
         Akl = (k+2) * (k+1) * A_kl(pot, ν, k+2, l)
         if k > ν && l > 0
             # Terminate sum for a finite number of terms in the potential
@@ -141,7 +143,7 @@ function ε_l(pot::Potential, ν::Int, l::Int)
 
     # Cheap boundary cases — not worth caching
     if isodd(l) return zero(T) end
-    ω = _compute_ω(pot.vcoeffs[1])
+    ω = pot.ω
     if iszero(l) return ω * (ν + one(T)/2) end
 
     get!(pot._εl_cache, (ν, l)) do
@@ -193,7 +195,7 @@ at order l, and `ε[l+1]` holds the energy correction at order l.
 """
 function fill_Akl!(Akl, ε, pot::Potential, ν::Int, maxorder::Int)
     vcoeffs = pot.vcoeffs
-    ω = _compute_ω(vcoeffs[1])
+    ω = pot.ω
     # Be careful with indexing here
     Akl[ν+1, 1] = one(ω)
     ε[1] = ω * (ν + one(eltype(vcoeffs))/2)
