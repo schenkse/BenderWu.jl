@@ -4,6 +4,8 @@ Julia implementation of the **Bender-Wu method** for computing perturbative ener
 
 The Hamiltonian is H = p²/2 + V(x), where V(x) = Σ vcoeffs[n] · xⁿ⁺¹. The energy eigenvalue E_ν is expanded order by order in a coupling constant; this package computes those perturbative corrections using the Bender-Wu recursive relations.
 
+> **Built with LLMs:** This project was developed with the help of AI coding tools, primarily [Claude Code](https://claude.ai/code) by Anthropic. All code has been reviewed and is maintained by the author.
+
 ## References
 
 - C. M. Bender & T. T. Wu, *Phys. Rev.* **184**, 1231 (1969) — original recursion relations for the anharmonic oscillator  
