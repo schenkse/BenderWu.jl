@@ -4,6 +4,9 @@ Julia implementation of the **Bender-Wu method** for computing perturbative ener
 
 The Hamiltonian is H = p²/2 + V(x), where V(x) = Σ vcoeffs[n] · xⁿ⁺¹. The energy eigenvalue E_ν is expanded order by order in a coupling constant; this package computes those perturbative corrections using the Bender-Wu recursive relations.
 
+[![Julia ≥ 1.10](https://img.shields.io/badge/Julia-≥1.10-9558B2?logo=julia)](https://julialang.org)
+[![No dependencies](https://img.shields.io/badge/dependencies-none-brightgreen)](Project.toml)
+
 > **Built with LLMs:** This project was developed with the help of AI coding tools, primarily [Claude Code](https://claude.ai/code) by Anthropic. All code has been reviewed and is maintained by the author.
 
 ## References
@@ -16,6 +19,21 @@ The Hamiltonian is H = p²/2 + V(x), where V(x) = Σ vcoeffs[n] · xⁿ⁺¹. Th
   <https://arxiv.org/abs/1608.08256>
 
 ## Setup
+
+### Install from GitHub
+
+```julia
+using Pkg
+Pkg.add(url="https://github.com/schenkse/BenderWu.jl")
+using BenderWu
+```
+
+### Clone for development
+
+```bash
+git clone https://github.com/schenkse/BenderWu.jl
+cd BenderWu.jl
+```
 
 ```julia
 using Pkg
