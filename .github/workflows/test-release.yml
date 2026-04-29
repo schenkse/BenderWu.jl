@@ -2,25 +2,26 @@ name: Test and Release
 
 on:
   push:
-    branches:
-      - main
-    tags:
-      - 'v*.*.*'
+    branches: [main]
+    tags: ['v*.*.*']
   pull_request:
+    branches: [main]
 
 jobs:
   test:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
-        version:
-          - '1'
-          - 'lts'
-          - 'nightly'
-        os:
-          - ubuntu-latest
+        version: ['1', 'lts']
+        os: [ubuntu-latest]
+        experimental: [false]
+        include:
+          - version: 'nightly'
+            os: ubuntu-latest
+            experimental: true
     steps:
       - uses: actions/checkout@v6
       - uses: julia-actions/setup-julia@v3
@@ -39,4 +40,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v6
-      - uses: softprops/action-gh-release@v3
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
