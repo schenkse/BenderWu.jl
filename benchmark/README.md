@@ -1,9 +1,6 @@
 # Benchmarks
 
-Compares this Julia BenderWu implementation against the reference Mathematica
-package `BenderWu.m` by Sulejmanpasic (the implementation released with
-arXiv:1608.08256). The headline numbers and plots live in
-[../BENCHMARKS.md](../BENCHMARKS.md).
+Compares this Julia BenderWu implementation against the reference Mathematica package `BenderWu.m` (the implementation released with [arXiv:1608.08256](https://arxiv.org/abs/1608.08256)). The headline numbers and plots live in [../BENCHMARKS.md](../BENCHMARKS.md).
 
 ## Files
 
@@ -36,12 +33,8 @@ and the comparison is apples-to-apples.
 You need:
 
 - Julia ≥ 1.10
-- Mathematica with `wolframscript` (the script falls back to the macOS
-  default location `/Applications/Wolfram.app/Contents/MacOS/wolframscript`
-  if `wolframscript` is not on `PATH`)
-- The Mathematica package `BenderWu.m` installed at
-  `~/Library/Wolfram/Applications/BenderWu.m` (Sulejmanpasic, available
-  alongside arXiv:1608.08256)
+- Mathematica with `wolframscript`
+- The Mathematica package `BenderWu.m` installed
 
 One-time setup of the benchmark environment:
 
@@ -52,13 +45,11 @@ julia --project=benchmark -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate(
 Run the full sweeps and regenerate `BENCHMARKS.md`:
 
 ```bash
-# Julia (~30 s)
+# Julia
 julia --project=benchmark benchmark/run_julia.jl
 
-# Mathematica (~10 min)
+# Mathematica
 wolframscript -file benchmark/run_mathematica.wls
-# or, if wolframscript is not on PATH:
-/Applications/Wolfram.app/Contents/MacOS/wolframscript -file benchmark/run_mathematica.wls
 
 # Aggregate (validate + plot + write report)
 julia --project=benchmark benchmark/aggregate.jl
