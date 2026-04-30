@@ -70,6 +70,13 @@ using BenderWu
         @test ds[2] ≈ 3.0
     end
 
+    @testset "Constructor input validation" begin
+        @test_throws ArgumentError Potential(Float64[])
+        @test_throws ArgumentError Potential([0.0, 0.0, 1.0])   # no x² term
+        @test_throws ArgumentError Potential([-0.5, 0.0, 1.0])  # negative ω²
+        @test_throws ArgumentError Potential([0//1, 0//1, 1//1])
+    end
+
     @testset "Pure harmonic potential" begin
         # No perturbation terms: all higher-order corrections vanish, only
         # ε_l(pot, ν, 0) = ω*(ν + 1/2) is non-zero.

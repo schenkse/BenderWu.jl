@@ -34,13 +34,21 @@ struct Potential{T}
     _εl_cache::Dict{Tuple{Int,Int}, T}
 end
 
-Potential(vcoeffs::AbstractVector{T}) where T = Potential(
-    collect(T, vcoeffs),
-    _compute_ω(first(vcoeffs)),
-    Dict{Tuple{Int,Int}, Int}(),
-    Dict{Tuple{Int,Int,Int}, T}(),
-    Dict{Tuple{Int,Int}, T}()
-)
+function Potential(vcoeffs::AbstractVector{T}) where T
+    isempty(vcoeffs) && throw(ArgumentError("vcoeffs must be non-empty"))
+    # Bender-Wu requires a positive harmonic baseline ω = √(2·vcoeffs[1]).
+    # vcoeffs[1] ≤ 0 either makes ω complex (negative) or zero (which would
+    # cause division-by-zero in the recursion below).
+    vcoeffs[1] > zero(T) || throw(ArgumentError(
+        "vcoeffs[1] (coefficient of x²) must be strictly positive; got $(vcoeffs[1])"))
+    Potential(
+        collect(T, vcoeffs),
+        _compute_ω(first(vcoeffs)),
+        Dict{Tuple{Int,Int}, Int}(),
+        Dict{Tuple{Int,Int,Int}, T}(),
+        Dict{Tuple{Int,Int}, T}(),
+    )
+end
 
 # Promote fixed-width rational coefficients to Rational{BigInt} to prevent
 # integer overflow at higher perturbation orders.
