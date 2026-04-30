@@ -64,6 +64,27 @@ using BenderWu
         @test ds[2] ≈ 3.0
     end
 
+    @testset "Pure harmonic potential" begin
+        # No perturbation terms: all higher-order corrections vanish, only
+        # ε_l(pot, ν, 0) = ω*(ν + 1/2) is non-zero.
+        pot_h = Potential([0.5])  # V = x²/2, ω = 1
+        for ν in 0:5
+            @test ε_l(pot_h, ν, 0) ≈ ν + 0.5
+            @test iszero(ε_l(pot_h, ν, 2))
+            @test iszero(ε_l(pot_h, ν, 4))
+        end
+        # fill_Akl! must not go out of bounds for ν ≥ 3 where max_k(·, l>0) = 0
+        for ν in 0:5
+            maxorder = 4
+            Akl, ε_arr = initialize_Akl_eps(pot_h, ν, maxorder)
+            fill_Akl!(Akl, ε_arr, pot_h, ν, maxorder)
+            @test ε_arr[1] ≈ ν + 0.5
+            for l in 1:maxorder
+                @test iszero(ε_arr[l+1])
+            end
+        end
+    end
+
     @testset "Rational arithmetic (exact results)" begin
         pot_r = Potential([1//2, 0//1, 1//1])
         # Integer-typed rationals are auto-promoted to Rational{BigInt}

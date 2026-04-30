@@ -173,7 +173,9 @@ computation up to perturbation order `l` for quantum number `ν`.
 Element type matches `eltype(pot.vcoeffs)`. Pass these arrays to `fill_Akl!`.
 """
 function initialize_Akl_eps(pot::Potential, ν::Int, l::Int)
-    kmax = max_k(pot, ν, l)
+    # max(ν, …): pure harmonic potentials have max_k = 0 for l > 0, but the
+    # boundary condition still writes Akl[ν+1, 1].
+    kmax = max(ν, max_k(pot, ν, l))
     T = eltype(pot.vcoeffs)
     return zeros(T, kmax+3, l+1), zeros(T, l+1)
 end
