@@ -6,7 +6,7 @@ module BenderWu
 export Potential
 export max_k, A_kl, ε_l
 export initialize_Akl_eps, fill_Akl!
-export find_epoly, find_epoly_derivative, evaluate_epoly
+export find_epoly, epoly_taylor_derivatives, evaluate_epoly
 
 """
     Potential(vcoeffs)
@@ -279,22 +279,20 @@ function find_epoly(order::Int, pot::Potential)
 end
 
 """
-    find_epoly_derivative(epoly)
+    epoly_taylor_derivatives(epoly)
 
-Return the Taylor coefficients of the derivative of the energy polynomial `epoly`
-with respect to ν, evaluated at ν = 0.
+Return the derivatives of the energy polynomial `epoly` evaluated at ν = 0.
 
-Given `epoly` with coefficients [c_0, c_1, ..., c_n] representing the polynomial
-∑ c_k · ν^(k-1), the k-th output element is (k-1)! · c_k, i.e. the (k-1)-th
-derivative at ν = 0. Uses arbitrary-precision factorials for coefficients beyond
-index 20 to avoid overflow.
+Given `epoly = [c_0, c_1, …, c_n]` representing the polynomial ∑ c_k · ν^k,
+the k-th output element (1-indexed) is k! · c_k, i.e. the k-th derivative of
+the polynomial at ν = 0. Output length is `length(epoly) - 1` (the constant
+term c_0 is not a derivative).
 """
-function find_epoly_derivative(epoly)
-    otype = typeof(epoly[1])
-    ds = Array{otype}(undef, length(epoly)-1)
-    for (n, ε) in enumerate(epoly)
-        if isone(n) continue end
-        ds[n-1] = n >= 20 ? factorial(big(n-1)) * ε : factorial(n-1) * ε
+function epoly_taylor_derivatives(epoly)
+    T = typeof(epoly[1])
+    ds = Array{T}(undef, length(epoly)-1)
+    for k in 1:length(epoly)-1
+        ds[k] = factorial(big(k)) * epoly[k+1]
     end
     return ds
 end

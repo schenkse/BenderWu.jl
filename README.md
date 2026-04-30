@@ -89,10 +89,10 @@ evaluate_epoly(3, epoly)   # → 21.75
 ε_polys = [find_epoly(n, pot) for n = 0:50]
 ```
 
-**Taylor coefficients of the derivative** (derivative of ε(ν) evaluated at ν = 0):
+**Derivatives of ε(ν) evaluated at ν = 0** — entry `k` is the k-th derivative:
 
 ```julia
-ds = find_epoly_derivative(find_epoly(2, pot))   # → [1.5, 3.0]
+ds = epoly_taylor_derivatives(find_epoly(2, pot))   # → [1.5, 3.0]
 ```
 
 ### Numeric precision modes
@@ -146,7 +146,7 @@ fill_Akl!(Akl, ε, pot, ν, maxorder)
 | `max_k(pot, ν, l)` | Upper bound on the k-index at perturbation order `l` |
 | `find_epoly(order, pot)` | Fit the order-`order` energy correction as a polynomial in ν; returns coefficient vector |
 | `evaluate_epoly(n, epoly)` | Evaluate an energy polynomial at ν = n |
-| `find_epoly_derivative(epoly)` | Taylor coefficients of the derivative of an energy polynomial at ν = 0 |
+| `epoly_taylor_derivatives(epoly)` | Derivatives of an energy polynomial evaluated at ν = 0 (entry `k` is the k-th derivative) |
 | `initialize_Akl_eps(pot, ν, l)` | Allocate zero arrays for the iterative solver |
 | `fill_Akl!(Akl, ε, pot, ν, maxorder)` | Fill pre-allocated arrays in-place (iterative, type-stable) |
 
