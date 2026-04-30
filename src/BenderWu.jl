@@ -314,6 +314,9 @@ evaluate_epoly(3, epoly)            # energy correction at ν = 3
 function find_epoly(order::Int, pot::Potential)
     T = eltype(pot.vcoeffs)
     if isodd(order)
+        # Size matches the even-order layout (order ÷ 2 + 2) so callers can
+        # index uniformly across orders; entries are zero since odd-order
+        # corrections vanish identically.
         return zeros(T, order ÷ 2 + 2)
     end
     n = order ÷ 2 + 2
