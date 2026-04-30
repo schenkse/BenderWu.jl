@@ -29,6 +29,12 @@ using BenderWu
         @test evaluate_epoly(0, epoly) ≈ ε_l(pot, 0, 2)
         @test evaluate_epoly(1, epoly) ≈ ε_l(pot, 1, 2)
         @test evaluate_epoly(2, epoly) ≈ ε_l(pot, 2, 2)
+        # Output element type must match the polynomial's element type
+        @test evaluate_epoly(2, epoly) isa Float64
+        epoly_bf = find_epoly(2, Potential(BigFloat.([0.5, 0.0, 1.0])))
+        @test evaluate_epoly(2, epoly_bf) isa BigFloat
+        epoly_r = find_epoly(2, Potential([1//2, 0//1, 1//1]))
+        @test evaluate_epoly(2, epoly_r) isa Rational{BigInt}
     end
 
     @testset "Float64 and BigFloat caches are independent" begin

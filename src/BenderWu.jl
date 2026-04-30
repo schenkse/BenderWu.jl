@@ -308,9 +308,10 @@ Evaluate the energy polynomial `epoly` at quantum number `n`.
 ∑_k c_k · n^(k-1).
 """
 function evaluate_epoly(n::Int, epoly)
-    res = zero(epoly[1])
-    for (k, ε) in enumerate(epoly)
-        res += ε * big(n)^(k-1)
+    T = typeof(epoly[1])
+    res = zero(T)
+    for k in length(epoly):-1:1
+        res = res * n + epoly[k]
     end
     return res
 end
