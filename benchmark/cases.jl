@@ -1,5 +1,13 @@
 # Shared definition of the benchmark matrix used by run_julia.jl and aggregate.jl.
 # The Mathematica driver mirrors this list in run_mathematica.wls.
+#
+# We compare only exact-rational arithmetic (Julia Rational{BigInt} vs
+# Mathematica's exact symbolic arithmetic). A Float64 vs MachinePrecision
+# comparison would not be apples-to-apples: Mathematica's BenderWu evaluates
+# the recursion through its symbolic term-rewriting pipeline regardless of
+# the coefficient precision, while Julia compiles to tight native loops.
+# That comparison would mostly measure symbolic-evaluator overhead, not
+# algorithmic efficiency, so we omit it.
 
 # A potential is described by its Julia coefficient vector (vcoeffs[n] is the
 # coefficient of x^(n+1)) and a Mathematica string representation of V(x).
@@ -12,36 +20,26 @@ const POTENTIALS = [
 
 const NUS = [0, 1, 5]
 
-# Order sweeps. Float64 holds up well; rational/exact balloons the integers.
-const ORDERS_FLOAT   = [10, 20, 30, 40, 50]
-const ORDERS_RATIONAL = [5, 10, 15, 20, 25]
+# Rational/exact arithmetic: integer growth is super-exponential in N, so the
+# range stays modest.
+const ORDERS = [5, 10, 15, 20, 25]
 
 const QUICK_NUS = [0]
-const QUICK_ORDERS_FLOAT = [10]
-const QUICK_ORDERS_RATIONAL = [5]
+const QUICK_ORDERS = [5]
 
 """
     cases(; quick=false)
 
-Return a vector of named tuples describing every (potential, ν, N, mode) cell
-in the benchmark matrix. `mode` is `:float64` or `:rational`.
+Return a vector of named tuples describing every (potential, ν, N) cell in the
+benchmark matrix. All cases run in exact-rational mode.
 """
 function cases(; quick::Bool = false)
-    nus = quick ? QUICK_NUS : NUS
-    orders_f = quick ? QUICK_ORDERS_FLOAT : ORDERS_FLOAT
-    orders_r = quick ? QUICK_ORDERS_RATIONAL : ORDERS_RATIONAL
+    nus    = quick ? QUICK_NUS    : NUS
+    orders = quick ? QUICK_ORDERS : ORDERS
     out = Vector{NamedTuple}()
-    for p in POTENTIALS, ν in nus
-        for N in orders_f
-            push!(out, (potential = p.name, vcoeffs = p.vcoeffs, mma = p.mma,
-                        nu = ν, N = N, mode = :float64))
-        end
-        for N in orders_r
-            push!(out, (potential = p.name, vcoeffs = p.vcoeffs, mma = p.mma,
-                        nu = ν, N = N, mode = :rational))
-        end
+    for p in POTENTIALS, ν in nus, N in orders
+        push!(out, (potential = p.name, vcoeffs = p.vcoeffs, mma = p.mma,
+                    nu = ν, N = N))
     end
     return out
 end
-
-case_key(c) = (c.potential, c.nu, c.N, String(c.mode))

@@ -1,6 +1,6 @@
 #!/usr/bin/env julia
-# Times the Julia BenderWu implementation across the shared benchmark matrix
-# and writes results to benchmark/results_julia.json.
+# Times the Julia BenderWu implementation in exact-rational mode across the
+# shared benchmark matrix and writes results to benchmark/results_julia.json.
 #
 # Usage:
 #   julia --project=benchmark benchmark/run_julia.jl [--quick]
@@ -20,19 +20,16 @@ BenchmarkTools.DEFAULT_PARAMETERS.seconds = 5.0
 BenchmarkTools.DEFAULT_PARAMETERS.samples = 50
 
 """
-Build a Potential of the right element type and time the iterative
-fill_Akl! call. Each sample uses a fresh Potential so caches are cold —
-this matches what Mathematica does (every call recomputes from scratch).
+Build a Rational{BigInt} Potential and time the iterative fill_Akl! call.
+Each sample uses a fresh Potential so caches are cold — this matches what
+Mathematica does (every call recomputes from scratch).
 """
 function bench_case(c)
-    coeffs = c.mode === :float64 ? Float64.(c.vcoeffs) :
-                                    Rational{BigInt}.(c.vcoeffs)
+    coeffs = Rational{BigInt}.(c.vcoeffs)
     ν = c.nu
     N = c.N
 
-    # Reference computation: get the ε vector once, with full precision
-    # preserved (rationals as exact). This is what we serialise for the
-    # validation pass.
+    # Reference computation: get the ε vector once for the validation pass.
     pot_ref = Potential(coeffs)
     Akl_ref, ε_ref = initialize_Akl_eps(pot_ref, ν, N)
     fill_Akl!(Akl_ref, ε_ref, pot_ref, ν, N)
@@ -48,7 +45,6 @@ function bench_case(c)
         potential = c.potential,
         nu = ν,
         N = N,
-        mode = String(c.mode),
         time_ns_median = median(b.times),
         time_ns_min = minimum(b.times),
         samples = length(b.times),
@@ -64,7 +60,7 @@ function main()
     results = []
     for (i, c) in enumerate(cs)
         print("[", i, "/", length(cs), "] ", c.potential, " ν=", c.nu,
-              " N=", c.N, " mode=", c.mode, " ... ")
+              " N=", c.N, " ... ")
         flush(stdout)
         r = bench_case(c)
         push!(results, r)

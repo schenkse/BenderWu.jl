@@ -22,11 +22,14 @@ l = 0…N at fixed quantum number ν, given a polynomial potential V(x). The
 Julia path uses `initialize_Akl_eps` + `fill_Akl!`. The Mathematica path
 uses `BenderWu[V, x, ν, N, Output -> "Energy", OutputStyle -> "Array"]`.
 
-Two precision modes are exercised:
-
-- **Float64 / MachinePrecision** — IEEE 64-bit doubles on both sides.
-- **`Rational{BigInt}` / Mathematica exact** — exact arithmetic on both
-  sides, growing big integers.
+Only **exact-rational arithmetic** is benchmarked: Julia
+`Rational{BigInt}` against Mathematica's exact symbolic arithmetic. A
+Float64 vs MachinePrecision comparison would not be meaningful — the
+Mathematica package evaluates its recursion through the symbolic
+term-rewriting pipeline regardless of coefficient precision, so any
+gap there reflects evaluator overhead rather than algorithmic
+efficiency. In exact mode both sides do genuine big-integer arithmetic
+and the comparison is apples-to-apples.
 
 ## Running
 
@@ -78,10 +81,7 @@ julia --project=benchmark benchmark/aggregate.jl
 - Mathematica's `RepeatedTiming` chooses the number of repetitions
   automatically — many for fast cells, a single run for slow ones — and
   returns the average.
-- The validation tolerance for Float64 / MachinePrecision intentionally
-  loosens with order, since two IEEE-double implementations summing the same
-  recursion in different orders can drift by several digits at large l.
-  Rational / exact comparisons require bit-for-bit equality.
+- Validation requires bit-for-bit equality of the rational ε_l vectors.
 - Mathematica's per-call setup cost (Module initialisation, OptionsPattern
   parsing, symbolic preprocessing) is included in its timings — these are
   end-to-end "compute one sweep" numbers, not isolated kernel timings.
