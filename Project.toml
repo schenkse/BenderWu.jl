@@ -1,7 +1,7 @@
 name = "BenderWu"
 uuid = "3e760fb3-18dd-4c98-80e2-b25e5ad30177"
 authors = ["Sebastian Schenk <schenk.seb@gmail.com>"]
-version = "1.0.0"
+version = "1.0.1"
 
 [compat]
 julia = "1.10"
