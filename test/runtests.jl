@@ -111,4 +111,82 @@ using BenderWu
         @test length(find_epoly(14, pot_r)) == 9
     end
 
+    @testset "A_kl boundary values" begin
+        # Documented boundary conditions on A_{k,l}^(ν).
+        for ν in 0:3
+            # Normalisation at order 0.
+            @test A_kl(pot, ν, ν, 0) == 1.0
+            # k > ν vanishes at order 0.
+            for k in ν+1:ν+3
+                @test A_kl(pot, ν, k, 0) == 0.0
+            end
+            # k = ν vanishes at every higher order.
+            for l in 1:4
+                @test A_kl(pot, ν, ν, l) == 0.0
+            end
+            # k < 0 and l < 0 vanish.
+            @test A_kl(pot, ν, -1, 0) == 0.0
+            @test A_kl(pot, ν, 0, -1) == 0.0
+            # k > K_l^(ν) vanishes.
+            @test A_kl(pot, ν, max_k(pot, ν, 2) + 1, 2) == 0.0
+        end
+    end
+
+    @testset "Sextic potential (V = x²/2 + x⁶)" begin
+        pot6 = Potential([0.5, 0.0, 0.0, 0.0, 1.0])
+        # find_epoly + evaluate_epoly must round-trip ε_l for several (ν, l).
+        for l in (0, 2, 4)
+            epoly = find_epoly(l, pot6)
+            for ν in 0:3
+                @test evaluate_epoly(ν, epoly) ≈ ε_l(pot6, ν, l)
+            end
+        end
+        # Iterative path must match recursive path.
+        maxorder = 4
+        for ν in 0:3
+            Akl, ε_arr = initialize_Akl_eps(pot6, ν, maxorder)
+            fill_Akl!(Akl, ε_arr, pot6, ν, maxorder)
+            for l in 0:maxorder
+                @test ε_arr[l+1] ≈ ε_l(pot6, ν, l)
+            end
+        end
+    end
+
+    @testset "Octic potential (V = x²/2 + x⁸)" begin
+        pot8 = Potential([0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0])
+        for l in (0, 2, 4)
+            epoly = find_epoly(l, pot8)
+            for ν in 0:2
+                @test evaluate_epoly(ν, epoly) ≈ ε_l(pot8, ν, l)
+            end
+        end
+    end
+
+    @testset "Mixed-parity potential (V = x²/2 + x³ + x⁴)" begin
+        # Highest power must be even (physics); odd-power *terms* are allowed.
+        # Leading non-zero perturbation index is L=1, exercising a different
+        # branch of max_k than the quartic (where L=2).
+        pot_m = Potential([0.5, 1.0, 1.0])
+        maxorder = 4
+        for ν in 0:3
+            Akl, ε_arr = initialize_Akl_eps(pot_m, ν, maxorder)
+            fill_Akl!(Akl, ε_arr, pot_m, ν, maxorder)
+            for l in 0:maxorder
+                @test ε_arr[l+1] ≈ ε_l(pot_m, ν, l)
+            end
+        end
+        # Odd orders still vanish identically.
+        @test iszero(ε_l(pot_m, 0, 1))
+        @test iszero(ε_l(pot_m, 2, 3))
+    end
+
+    @testset "find_epoly at higher order (BigFloat)" begin
+        pot_bf = Potential(BigFloat.([0.5, 0.0, 1.0]))
+        epoly = find_epoly(20, pot_bf)
+        @test eltype(epoly) == BigFloat
+        for ν in 0:3
+            @test evaluate_epoly(ν, epoly) ≈ ε_l(pot_bf, ν, 20)
+        end
+    end
+
 end
