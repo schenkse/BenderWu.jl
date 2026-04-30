@@ -19,6 +19,10 @@ GC-managed — create one instance per potential and reuse it across calls.
 automatically promoted to `Rational{BigInt}` to prevent integer overflow at
 higher perturbation orders.
 
+The `vcoeffs` field must not be mutated after construction: caches are keyed
+on these coefficients, and in-place changes would silently invalidate every
+cached value. Construct a new `Potential` for a different polynomial.
+
 # Example
 ```julia
 pot   = Potential([0.5, 0.0, 1.0])        # Float64, V(x) = 0.5x² + x⁴
