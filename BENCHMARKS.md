@@ -1,13 +1,12 @@
 # BenderWu — Julia vs Mathematica benchmarks
 
 Comparison of this Julia package against the reference Mathematica
-implementation `BenderWu.m` (arXiv:1608.08256). Both
+implementation `BenderWu.m` ([arXiv:1608.08256](https://arxiv.org/abs/1608.08256)). Both
 implementations compute the perturbative energy corrections ε_l for
 l = 0…N at fixed quantum number ν using the polynomial potentials
 shown below.
 
-Only **exact-rational arithmetic** is benchmarked. A Float64 vs
-MachinePrecision comparison would not be apples-to-apples:
+Only **exact-rational arithmetic** is benchmarked.
 Mathematica's `BenderWu` evaluates the recursion through its
 symbolic term-rewriting pipeline regardless of coefficient
 precision, so the gap there mostly measures evaluator overhead
@@ -36,40 +35,38 @@ before timings were recorded — bit-for-bit equality on rationals.
 
 **60/60** cases match exactly.
 
+## Potentials
+
+| name | V(x) |
+|---|---|
+| quartic | x²/2 + x⁴ |
+| mixed_parity | x²/2 + x³ + x⁴ |
+| sextic | x²/2 + x⁶ |
+| octic | x²/2 + x⁸ |
+
 ## Results
+
+### Per-potential timings
+
+![quartic](benchmark/plots/quartic.png)
+
+![mixed_parity](benchmark/plots/mixed_parity.png)
+
+![sextic](benchmark/plots/sextic.png)
+
+![octic](benchmark/plots/octic.png)
+
+### Speedup factor
+
+Per-cell ratio of Mathematica median time to Julia median time
+(at ν = 0). Higher is better for Julia.
+
+![Speedup](benchmark/plots/speedup.png)
+
+### Timing table
 
 | potential | ν | N | Julia | Mathematica | speedup |
 |---|---|---|---:|---:|---:|
-| mixed_parity | 0 | 5 | 0.141 ms | 7.40 ms | 52.6× |
-| mixed_parity | 0 | 10 | 0.961 ms | 26.43 ms | 27.5× |
-| mixed_parity | 0 | 15 | 2.62 ms | 59.43 ms | 22.7× |
-| mixed_parity | 0 | 20 | 5.79 ms | 109.5 ms | 18.9× |
-| mixed_parity | 0 | 25 | 11.40 ms | 183.6 ms | 16.1× |
-| mixed_parity | 1 | 5 | 0.165 ms | 7.59 ms | 46.0× |
-| mixed_parity | 1 | 10 | 1.02 ms | 27.15 ms | 26.7× |
-| mixed_parity | 1 | 15 | 2.80 ms | 60.46 ms | 21.6× |
-| mixed_parity | 1 | 20 | 6.34 ms | 113.0 ms | 17.8× |
-| mixed_parity | 1 | 25 | 12.77 ms | 187.1 ms | 14.6× |
-| mixed_parity | 5 | 5 | 0.330 ms | 8.82 ms | 26.8× |
-| mixed_parity | 5 | 10 | 1.22 ms | 31.54 ms | 25.8× |
-| mixed_parity | 5 | 15 | 3.47 ms | 71.09 ms | 20.5× |
-| mixed_parity | 5 | 20 | 6.96 ms | 130.2 ms | 18.7× |
-| mixed_parity | 5 | 25 | 13.79 ms | 214.4 ms | 15.5× |
-| octic | 0 | 5 | 0.0037 ms | 5.36 ms | 1435× |
-| octic | 0 | 10 | 0.303 ms | 18.31 ms | 60.4× |
-| octic | 0 | 15 | 0.980 ms | 37.34 ms | 38.1× |
-| octic | 0 | 20 | 2.41 ms | 64.27 ms | 26.7× |
-| octic | 0 | 25 | 4.60 ms | 102.4 ms | 22.3× |
-| octic | 1 | 5 | 0.015 ms | 5.84 ms | 383× |
-| octic | 1 | 10 | 0.379 ms | 19.06 ms | 50.4× |
-| octic | 1 | 15 | 1.17 ms | 38.77 ms | 33.2× |
-| octic | 1 | 20 | 2.66 ms | 66.37 ms | 25.0× |
-| octic | 1 | 25 | 5.31 ms | 109.4 ms | 20.6× |
-| octic | 5 | 5 | 0.088 ms | 6.62 ms | 75.6× |
-| octic | 5 | 10 | 0.581 ms | 22.21 ms | 38.3× |
-| octic | 5 | 15 | 1.54 ms | 44.04 ms | 28.7× |
-| octic | 5 | 20 | 3.20 ms | 75.17 ms | 23.5× |
-| octic | 5 | 25 | 5.63 ms | 117.5 ms | 20.9× |
 | quartic | 0 | 5 | 0.080 ms | 5.28 ms | 66.4× |
 | quartic | 0 | 10 | 0.465 ms | 17.58 ms | 37.8× |
 | quartic | 0 | 15 | 1.55 ms | 36.26 ms | 23.3× |
@@ -85,6 +82,21 @@ before timings were recorded — bit-for-bit equality on rationals.
 | quartic | 5 | 15 | 1.94 ms | 44.16 ms | 22.7× |
 | quartic | 5 | 20 | 4.20 ms | 76.93 ms | 18.3× |
 | quartic | 5 | 25 | 7.27 ms | 124.0 ms | 17.1× |
+| mixed_parity | 0 | 5 | 0.141 ms | 7.40 ms | 52.6× |
+| mixed_parity | 0 | 10 | 0.961 ms | 26.43 ms | 27.5× |
+| mixed_parity | 0 | 15 | 2.62 ms | 59.43 ms | 22.7× |
+| mixed_parity | 0 | 20 | 5.79 ms | 109.5 ms | 18.9× |
+| mixed_parity | 0 | 25 | 11.40 ms | 183.6 ms | 16.1× |
+| mixed_parity | 1 | 5 | 0.165 ms | 7.59 ms | 46.0× |
+| mixed_parity | 1 | 10 | 1.02 ms | 27.15 ms | 26.7× |
+| mixed_parity | 1 | 15 | 2.80 ms | 60.46 ms | 21.6× |
+| mixed_parity | 1 | 20 | 6.34 ms | 113.0 ms | 17.8× |
+| mixed_parity | 1 | 25 | 12.77 ms | 187.1 ms | 14.6× |
+| mixed_parity | 5 | 5 | 0.330 ms | 8.82 ms | 26.8× |
+| mixed_parity | 5 | 10 | 1.22 ms | 31.54 ms | 25.8× |
+| mixed_parity | 5 | 15 | 3.47 ms | 71.09 ms | 20.5× |
+| mixed_parity | 5 | 20 | 6.96 ms | 130.2 ms | 18.7× |
+| mixed_parity | 5 | 25 | 13.79 ms | 214.4 ms | 15.5× |
 | sextic | 0 | 5 | 0.049 ms | 5.37 ms | 109× |
 | sextic | 0 | 10 | 0.333 ms | 17.72 ms | 53.2× |
 | sextic | 0 | 15 | 1.12 ms | 36.43 ms | 32.6× |
@@ -100,23 +112,21 @@ before timings were recorded — bit-for-bit equality on rationals.
 | sextic | 5 | 15 | 1.58 ms | 44.57 ms | 28.2× |
 | sextic | 5 | 20 | 3.30 ms | 76.95 ms | 23.3× |
 | sextic | 5 | 25 | 5.92 ms | 119.7 ms | 20.2× |
-
-### Per-potential timings
-
-![mixed_parity](benchmark/plots/mixed_parity.png)
-
-![octic](benchmark/plots/octic.png)
-
-![quartic](benchmark/plots/quartic.png)
-
-![sextic](benchmark/plots/sextic.png)
-
-### Speedup factor
-
-Per-cell ratio of Mathematica median time to Julia median time
-(at ν = 0). Higher is better for Julia.
-
-![Speedup](benchmark/plots/speedup.png)
+| octic | 0 | 5 | 0.0037 ms | 5.36 ms | 1435× |
+| octic | 0 | 10 | 0.303 ms | 18.31 ms | 60.4× |
+| octic | 0 | 15 | 0.980 ms | 37.34 ms | 38.1× |
+| octic | 0 | 20 | 2.41 ms | 64.27 ms | 26.7× |
+| octic | 0 | 25 | 4.60 ms | 102.4 ms | 22.3× |
+| octic | 1 | 5 | 0.015 ms | 5.84 ms | 383× |
+| octic | 1 | 10 | 0.379 ms | 19.06 ms | 50.4× |
+| octic | 1 | 15 | 1.17 ms | 38.77 ms | 33.2× |
+| octic | 1 | 20 | 2.66 ms | 66.37 ms | 25.0× |
+| octic | 1 | 25 | 5.31 ms | 109.4 ms | 20.6× |
+| octic | 5 | 5 | 0.088 ms | 6.62 ms | 75.6× |
+| octic | 5 | 10 | 0.581 ms | 22.21 ms | 38.3× |
+| octic | 5 | 15 | 1.54 ms | 44.04 ms | 28.7× |
+| octic | 5 | 20 | 3.20 ms | 75.17 ms | 23.5× |
+| octic | 5 | 25 | 5.63 ms | 117.5 ms | 20.9× |
 
 ## Reproducing
 
