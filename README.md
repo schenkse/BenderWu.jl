@@ -52,6 +52,12 @@ A `Potential` is constructed from a coefficient vector where `vcoeffs[n]` is the
 pot = Potential([0.5, 0.0, 1.0])   # V(x) = (1/2)x² + x⁴  (quartic oscillator, ω = 1)
 ```
 
+The index-to-power offset is by one: `vcoeffs[1]` is the x² coefficient, `vcoeffs[2]` is the x³ coefficient, and so on. For potentials where this convention is awkward — e.g. with widely separated terms — pass `power => coefficient` pairs instead:
+
+```julia
+pot = Potential([2 => 0.5, 4 => 1.0])    # same V(x) as above
+```
+
 The frequency ω is derived automatically from the leading term: ω = √(2·vcoeffs[1]).
 
 Create one `Potential` per potential and reuse it — results are memoized inside the struct and freed automatically when it goes out of scope.

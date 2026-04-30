@@ -10,10 +10,22 @@ export find_epoly, epoly_taylor_derivatives, evaluate_epoly
 
 """
     Potential(vcoeffs)
+    Potential(pairs)
 
 Represents a polynomial potential with coefficients `vcoeffs`, where `vcoeffs[n]`
-is the coefficient of x^(n+1). Carries its own memoization caches, which are
-GC-managed — create one instance per potential and reuse it across calls.
+is the coefficient of x^(n+1). The index-to-power map is therefore offset by one:
+
+| index     | `vcoeffs[1]` | `vcoeffs[2]` | `vcoeffs[3]` | … | `vcoeffs[n]` |
+|-----------|--------------|--------------|--------------|---|--------------|
+| power     | x²           | x³           | x⁴           | … | x^(n+1)      |
+
+A second constructor accepts `power => coefficient` pairs for cases where the
+positional convention is awkward — e.g. potentials with widely separated terms.
+`Potential([2 => 0.5, 4 => 1.0])` is equivalent to `Potential([0.5, 0.0, 1.0])`.
+Powers must be ≥ 2; duplicate powers are summed.
+
+Carries its own memoization caches, which are GC-managed — create one instance
+per potential and reuse it across calls.
 
 `Rational{Int64}` (and any `Rational{<:Base.BitInteger}`) coefficients are
 automatically promoted to `Rational{BigInt}` to prevent integer overflow at
@@ -30,6 +42,7 @@ may change without notice.
 # Example
 ```julia
 pot   = Potential([0.5, 0.0, 1.0])        # Float64, V(x) = 0.5x² + x⁴
+pot   = Potential([2 => 0.5, 4 => 1.0])   # same potential via power => coeff pairs
 pot_r = Potential([1//2, 0//1, 1//1])     # Rational — auto-promoted to Rational{BigInt}
 epoly = find_epoly(2, pot)
 ```
@@ -62,6 +75,18 @@ end
 # integer overflow at higher perturbation orders.
 Potential(vcoeffs::AbstractVector{Rational{T}}) where {T <: Base.BitInteger} =
     Potential(Rational{BigInt}.(vcoeffs))
+
+function Potential(pairs::AbstractVector{<:Pair{<:Integer,T}}) where T
+    isempty(pairs) && throw(ArgumentError("pairs must be non-empty"))
+    any(first(p) < 2 for p in pairs) &&
+        throw(ArgumentError("powers must be ≥ 2 (no x⁰ or x¹ terms allowed)"))
+    maxp = maximum(first, pairs)
+    vc = zeros(T, maxp - 1)
+    for (p, c) in pairs
+        vc[p - 1] += c
+    end
+    return Potential(vc)
+end
 
 """
     max_k(pot, ν, l)

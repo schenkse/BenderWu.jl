@@ -189,4 +189,20 @@ using BenderWu
         end
     end
 
+    @testset "Potential(pairs) constructor" begin
+        # Equivalent to the quartic Potential([0.5, 0.0, 1.0]).
+        pot_p = Potential([2 => 0.5, 4 => 1.0])
+        @test pot_p.vcoeffs == [0.5, 0.0, 1.0]
+        @test ε_l(pot_p, 0, 2) ≈ 3/4
+        @test ε_l(pot_p, 1, 2) ≈ 15/4
+        # Order of pairs and gaps in powers should not matter.
+        @test Potential([4 => 1.0, 2 => 0.5]).vcoeffs == [0.5, 0.0, 1.0]
+        # Duplicate powers accumulate.
+        @test Potential([2 => 0.25, 2 => 0.25, 4 => 1.0]).vcoeffs == [0.5, 0.0, 1.0]
+        # Validation errors.
+        @test_throws ArgumentError Potential(Pair{Int,Float64}[])
+        @test_throws ArgumentError Potential([1 => 1.0, 2 => 0.5])  # x¹ term
+        @test_throws ArgumentError Potential([2 => -0.5, 4 => 1.0]) # bad ω
+    end
+
 end
