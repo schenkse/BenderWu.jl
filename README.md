@@ -136,6 +136,8 @@ fill_Akl!(Akl, ε, pot, ν, maxorder)
 # ε[l+1] now equals ε_l(pot, ν, l) for every l in 0:maxorder
 ```
 
+**Which API to use?** Reach for `fill_Akl!` whenever you need many orders at a fixed ν — it is type-stable and substantially faster than repeated `ε_l` calls. Use the recursive `ε_l` / `A_kl` for ad-hoc single-value queries or when you do not know up front how many orders you will need; results are memoized inside `pot` and reused across calls.
+
 ## API reference
 
 | Function | Description |
