@@ -166,7 +166,5 @@ using Pkg; Pkg.test()
 
 ## Benchmarks
 
-End-to-end timings against the reference Mathematica implementation
-(`BenderWu.m`, Sulejmanpasic) for both Float64 and exact-rational arithmetic
-are reported in [BENCHMARKS.md](BENCHMARKS.md). See
-[benchmark/README.md](benchmark/README.md) for how to reproduce them.
+End-to-end timings against the reference Mathematica implementation `BenderWu.m` for both Float64 and exact-rational arithmetic are reported in [BENCHMARKS.md](BENCHMARKS.md).
+See [benchmark/README.md](benchmark/README.md) for how to reproduce them.
