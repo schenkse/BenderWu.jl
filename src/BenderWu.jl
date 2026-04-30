@@ -261,8 +261,11 @@ Return the coefficients of the energy polynomial ε^(order)(ν) at perturbation
 order `order`.
 
 The energy eigenvalue at perturbation order `order` is a polynomial in the
-quantum number ν. This function evaluates ε_l^(ν) at `order/2 + 2` values of ν
-and solves the resulting Vandermonde system to recover the polynomial coefficients.
+quantum number ν. This function evaluates ε_l^(ν) at `order/2 + 2` integer
+values of ν, computes divided differences (the Newton form), and converts to
+the monomial basis. Compared to a Vandermonde solve this is O(n²) instead of
+O(n³), exact in rational arithmetic, and numerically stable for `Float64` at
+high orders.
 
 Returns a zero vector for odd `order` (all odd-order corrections vanish).
 The element type matches `eltype(pot.vcoeffs)`, so pass a `BigFloat`-based
@@ -276,14 +279,28 @@ evaluate_epoly(3, epoly)            # energy correction at ν = 3
 ```
 """
 function find_epoly(order::Int, pot::Potential)
+    T = eltype(pot.vcoeffs)
     if isodd(order)
-        return zeros(eltype(pot.vcoeffs), order ÷ 2 + 2)
+        return zeros(T, order ÷ 2 + 2)
     end
-    # At order l we need to compute l+2 terms in total
-    l = order ÷ 2
-    ε_n = [ε_l(pot, n, order) for n=0:l+1]
-    N_mat = [oftype(pot.vcoeffs[1], big(n)^j) for n=0:l+1, j=0:l+1]
-    return N_mat \ ε_n
+    n = order ÷ 2 + 2
+    dd = [ε_l(pot, k, order) for k = 0:n-1]
+    # In-place divided differences for unit-spaced nodes 0..n-1: divide by k.
+    for k = 1:n-1, i = n:-1:k+1
+        dd[i] = (dd[i] - dd[i-1]) / k
+    end
+    # Convert Newton form ∑ dd[k+1] · x(x-1)…(x-k+1) to monomial coefficients.
+    coeffs = T[dd[n]]
+    for k = n-1:-1:1
+        new = zeros(T, length(coeffs) + 1)
+        for j in eachindex(coeffs)
+            new[j+1] += coeffs[j]
+            new[j]   -= (k-1) * coeffs[j]
+        end
+        new[1] += dd[k]
+        coeffs = new
+    end
+    return coeffs
 end
 
 """
