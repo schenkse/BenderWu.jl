@@ -145,6 +145,42 @@ function _compute_ω(v::Rational{T}) where T
 end
 _compute_ω(v) = sqrt(2 * v)
 
+# Shared update kernels used by both the recursive (A_kl/ε_l) and iterative
+# (fill_Akl!) paths. They take accessor callables so the same formula can read
+# values from a cache or from a pre-filled array. The compiler specialises on
+# the callable types (FA, FE), so the closures inline without dynamic dispatch.
+
+@inline function _akl_update(getA::FA, getε::FE, vcoeffs::Vector{T}, ω::T,
+                              ν::Int, k::Int, l::Int) where {FA, FE, T}
+    Akl = (k+2) * (k+1) * getA(k+2, l)
+    # When k > ν and l > 0, the n == l term would call ε_l(ν, l), which itself
+    # depends on A(ν+2, l) — still being computed in the recursive path. The
+    # term vanishes anyway since A(k, 0) = 0 for k > ν, so omitting it is both
+    # correct and circular-call-safe. (Same logic the iterative path expresses
+    # as `for n = 1:l-1` in Step 1.)
+    n_eps_max = (k > ν && l > 0) ? l - 1 : l
+    for n = 1:n_eps_max
+        Akl += 2 * getε(n) * getA(k, l-n)
+    end
+    for n = 1:l
+        n+1 > length(vcoeffs) && continue
+        iszero(vcoeffs[n+1]) && continue
+        Akl += -2 * vcoeffs[n+1] * getA(k-n-2, l-n)
+    end
+    return Akl / (2 * ω * (k - ν))
+end
+
+@inline function _eps_update(getA::FA, vcoeffs::Vector{T},
+                              ν::Int, l::Int) where {FA, T}
+    ε = -(ν+2) * (ν+1) ÷ 2 * getA(ν+2, l)
+    for n = 1:l
+        n+1 > length(vcoeffs) && continue
+        iszero(vcoeffs[n+1]) && continue
+        ε += vcoeffs[n+1] * getA(ν-n-2, l-n)
+    end
+    return ε
+end
+
 """
     A_kl(pot, ν, k, l)
 
@@ -169,33 +205,11 @@ function A_kl(pot::Potential{T}, ν::Int, k::Int, l::Int) where T
 
     lock(pot._cache_lock) do
         get!(pot._Akl_cache, (ν, k, l)) do
-            vcoeffs = pot.vcoeffs
-            ω = pot.ω
-            Akl = (k+2) * (k+1) * A_kl(pot, ν, k+2, l)
-            if k > ν && l > 0
-                # Terminate sum for a finite number of terms in the potential
-                # n==l is excluded: it would require ε_l(pot, ν, l), which in turn
-                # calls A_kl(pot, ν, ν+2, l) — still being computed here. The term
-                # vanishes anyway (A_kl(pot, ν, k, 0) = 0 for k > ν), so skipping
-                # it avoids the circular call. fill_Akl! expresses this as 1:l-1.
-                for n=1:l
-                    if n != l
-                        Akl += 2 * ε_l(pot, ν, n) * A_kl(pot, ν, k, l-n)
-                    end
-                    if n+1 > length(vcoeffs) continue end
-                    if iszero(vcoeffs[n+1]) continue end
-                    Akl += -2 * vcoeffs[n+1] * A_kl(pot, ν, k-n-2, l-n)
-                end
-            else
-                # Terminate sum for a finite number of terms in the potential
-                for n=1:l
-                    Akl += 2 * ε_l(pot, ν, n) * A_kl(pot, ν, k, l-n)
-                    if n+1 > length(vcoeffs) continue end
-                    if iszero(vcoeffs[n+1]) continue end
-                    Akl += -2 * vcoeffs[n+1] * A_kl(pot, ν, k-n-2, l-n)
-                end
-            end
-            return Akl / (2 * ω * (k - ν))
+            _akl_update(
+                (kk, ll) -> A_kl(pot, ν, kk, ll),
+                n        -> ε_l(pot, ν, n),
+                pot.vcoeffs, pot.ω, ν, k, l,
+            )
         end
     end
 end
@@ -228,15 +242,7 @@ function ε_l(pot::Potential{T}, ν::Int, l::Int) where T
 
     lock(pot._cache_lock) do
         get!(pot._εl_cache, (ν, l)) do
-            vcoeffs = pot.vcoeffs
-            ε = -(ν+2) * (ν+1) ÷ 2 * A_kl(pot, ν, ν+2, l)
-            # Terminate sum for a finite number of terms in the potential
-            for n=1:l
-                if n+1 > length(vcoeffs) continue end
-                if iszero(vcoeffs[n+1]) continue end
-                ε += vcoeffs[n+1] * A_kl(pot, ν, ν-n-2, l-n)
-            end
-            return ε
+            _eps_update((kk, ll) -> A_kl(pot, ν, kk, ll), pot.vcoeffs, ν, l)
         end
     end
 end
@@ -280,45 +286,24 @@ at order l, and `ε[l+1]` holds the energy correction at order l.
 function fill_Akl!(Akl, ε, pot::Potential, ν::Int, maxorder::Int)
     vcoeffs = pot.vcoeffs
     ω = pot.ω
-    # Be careful with indexing here
+    T = eltype(vcoeffs)
     Akl[ν+1, 1] = one(ω)
-    ε[1] = ω * (ν + one(eltype(vcoeffs))/2)
-    for l=0:maxorder
+    ε[1] = ω * (ν + one(T)/2)
+    # Accessors give _akl_update / _eps_update read-only views of Akl/ε that
+    # match the boundary semantics of the recursive path (k < 0 ⇒ zero).
+    # Array indexing is 1-based: A(k, l) lives at Akl[k+1, l+1], ε(n) at ε[n+1].
+    getA = (k, l) -> k < 0 ? zero(T) : Akl[k+1, l+1]
+    getε = n -> ε[n+1]
+    for l = 0:maxorder
         kmax = max_k(pot, ν, l)
-        # Step 1
         if l > 0
-            for k=kmax:-1:ν+1
-                Akl[k+1, l+1] += (k+2) * (k+1) * Akl[(k+2)+1, l+1]
-                for n=1:l-1
-                    Akl[k+1, l+1] += 2 * ε[n+1] * Akl[k+1, l-n+1]
-                end
-                for n=1:l
-                    # Check index bounds
-                    if n+1 > length(vcoeffs) || k-n-2 < 0 continue end
-                    Akl[k+1, l+1] += -2 * vcoeffs[n+1] * Akl[(k-n-2)+1, l-n+1]
-                end
-                Akl[k+1, l+1] /= 2 * ω * (k - ν)
+            for k = kmax:-1:ν+1
+                Akl[k+1, l+1] = _akl_update(getA, getε, vcoeffs, ω, ν, k, l)
             end
+            ε[l+1] = _eps_update(getA, vcoeffs, ν, l)
         end
-        # Step 2
-        if l > 0
-            ε[l+1] += -(ν+2) * (ν+1) ÷ 2 * Akl[(ν+2)+1, l+1]
-            for n=1:l
-                # Check index bounds
-                if n+1 > length(vcoeffs) || ν-n-2 < 0 continue end
-                ε[l+1] += vcoeffs[n+1] * Akl[(ν-n-2)+1, l-n+1]
-            end
-        end
-        # Step 3
-        for k=ν-1:-1:0
-            Akl[k+1, l+1] += (k+2) * (k+1) * Akl[(k+2)+1, l+1]
-            for n=1:l
-                Akl[k+1, l+1] += 2 * ε[n+1] * Akl[k+1, l-n+1]
-                # Check index bounds
-                if n+1 > length(vcoeffs) || k-n-2 < 0 continue end
-                Akl[k+1, l+1] += -2 * vcoeffs[n+1] * Akl[(k-n-2)+1, l-n+1]
-            end
-            Akl[k+1, l+1] /= 2 * ω * (k - ν)
+        for k = ν-1:-1:0
+            Akl[k+1, l+1] = _akl_update(getA, getε, vcoeffs, ω, ν, k, l)
         end
     end
     nothing
