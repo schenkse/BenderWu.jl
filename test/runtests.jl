@@ -71,6 +71,13 @@ using Base.Threads
         @test ds[2] ≈ 3.0
     end
 
+    @testset "Empty epoly throws ArgumentError" begin
+        # Without the guard, both fall through to `typeof(epoly[1])` and emit
+        # a confusing BoundsError. Empty input is invalid; surface it clearly.
+        @test_throws ArgumentError evaluate_epoly(0, Float64[])
+        @test_throws ArgumentError epoly_taylor_derivatives(Float64[])
+    end
+
     @testset "Constructor input validation" begin
         @test_throws ArgumentError Potential(Float64[])
         @test_throws ArgumentError Potential([0.0, 0.0, 1.0])   # no x² term

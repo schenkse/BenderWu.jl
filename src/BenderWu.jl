@@ -392,6 +392,7 @@ the polynomial at ν = 0. Output length is `length(epoly) - 1` (the constant
 term c_0 is not a derivative).
 """
 function epoly_taylor_derivatives(epoly)
+    isempty(epoly) && throw(ArgumentError("epoly must be non-empty"))
     T = typeof(epoly[1])
     ds = Array{T}(undef, length(epoly)-1)
     for k in 1:length(epoly)-1
@@ -413,6 +414,7 @@ Evaluate the energy polynomial `epoly` at quantum number `n`.
 ∑_k c_k · n^(k-1).
 """
 function evaluate_epoly(n::Int, epoly)
+    isempty(epoly) && throw(ArgumentError("epoly must be non-empty"))
     T = typeof(epoly[1])
     res = zero(T)
     for k in length(epoly):-1:1
