@@ -76,6 +76,9 @@ using Base.Threads
         @test_throws ArgumentError Potential([0.0, 0.0, 1.0])   # no x² term
         @test_throws ArgumentError Potential([-0.5, 0.0, 1.0])  # negative ω²
         @test_throws ArgumentError Potential([0//1, 0//1, 1//1])
+        # Non-real eltypes are rejected upfront with a clear ArgumentError
+        # rather than a downstream MethodError on `>`.
+        @test_throws ArgumentError Potential(ComplexF64[1.0 + 0im, 0.0, 1.0])
     end
 
     @testset "Pure harmonic potential" begin

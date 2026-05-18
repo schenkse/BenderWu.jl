@@ -59,6 +59,12 @@ struct Potential{T}
 end
 
 function Potential(vcoeffs::AbstractVector{T}) where T
+    # The algorithm's domain is real-valued coefficients (ω = √(2·vcoeffs[1])
+    # must be real). Catch non-real eltypes here so callers get a clear error
+    # rather than a downstream MethodError from `>` on Complex/etc.
+    T <: Real || throw(ArgumentError(
+        "Potential supports real-valued coefficient types only " *
+        "(Float64, BigFloat, Rational); got eltype = $T"))
     isempty(vcoeffs) && throw(ArgumentError("vcoeffs must be non-empty"))
     # Bender-Wu requires a positive harmonic baseline ω = √(2·vcoeffs[1]).
     # vcoeffs[1] ≤ 0 either makes ω complex (negative) or zero (which would
