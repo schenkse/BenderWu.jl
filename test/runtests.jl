@@ -81,6 +81,19 @@ using Base.Threads
         @test_throws ArgumentError Potential(ComplexF64[1.0 + 0im, 0.0, 1.0])
     end
 
+    @testset "Vector{T} input is reused, AbstractVector input is copied" begin
+        # Common case: passing a Vector{T} of the right eltype reuses the
+        # buffer (no defensive copy).
+        src = [0.5, 0.0, 1.0]
+        @test Potential(src).vcoeffs === src
+        # AbstractVector inputs (views, ranges) still go through collect.
+        v = @view src[1:end]
+        pot_v = Potential(v)
+        @test pot_v.vcoeffs !== src
+        @test pot_v.vcoeffs == src
+        @test pot_v.vcoeffs isa Vector{Float64}
+    end
+
     @testset "Pure harmonic potential" begin
         # No perturbation terms: all higher-order corrections vanish, only
         # ε_l(pot, ν, 0) = ω*(ν + 1/2) is non-zero.

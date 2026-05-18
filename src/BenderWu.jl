@@ -71,8 +71,13 @@ function Potential(vcoeffs::AbstractVector{T}) where T
     # cause division-by-zero in the recursion below).
     vcoeffs[1] > zero(T) || throw(ArgumentError(
         "vcoeffs[1] (coefficient of x²) must be strictly positive; got $(vcoeffs[1])"))
+    # Reuse the input directly when it is already a concrete Vector{T}; only
+    # copy/convert for AbstractVector inputs (views, ranges, mismatched eltype).
+    # The "must not be mutated after construction" contract in the docstring
+    # covers cache integrity on the caller side.
+    vc = vcoeffs isa Vector{T} ? vcoeffs : collect(T, vcoeffs)
     Potential(
-        collect(T, vcoeffs),
+        vc,
         _compute_ω(first(vcoeffs)),
         Dict{Tuple{Int,Int,Int}, T}(),
         Dict{Tuple{Int,Int}, T}(),
