@@ -294,4 +294,37 @@ using Base.Threads
         @test_throws ArgumentError Potential([2 => -0.5, 4 => 1.0]) # bad ω
     end
 
+    @testset "Iterative path with Potential(pairs) constructor" begin
+        # fill_Akl! must agree with recursive ε_l when the Potential was built
+        # from the pairs constructor (covers the iterative path on a non-Vector
+        # construction route).
+        pot_p = Potential([2 => 0.5, 4 => 1.0])
+        maxorder = 6
+        for ν in 0:3
+            Akl, ε_arr = initialize_Akl_eps(pot_p, ν, maxorder)
+            fill_Akl!(Akl, ε_arr, pot_p, ν, maxorder)
+            for l in 0:maxorder
+                @test ε_arr[l+1] ≈ ε_l(pot_p, ν, l)
+            end
+        end
+    end
+
+    @testset "Iterative path with Rational coefficients (exact)" begin
+        # All prior iterative-path tests use Float64. Cover the iterative path
+        # under exact Rational{BigInt} arithmetic: results must be type-stable
+        # (no Float64 contamination) and exactly equal — not just ≈ — to the
+        # recursive path.
+        pot_r = Potential([1//2, 0//1, 1//1])
+        maxorder = 6
+        for ν in 0:3
+            Akl, ε_arr = initialize_Akl_eps(pot_r, ν, maxorder)
+            @test eltype(Akl) == Rational{BigInt}
+            @test eltype(ε_arr) == Rational{BigInt}
+            fill_Akl!(Akl, ε_arr, pot_r, ν, maxorder)
+            for l in 0:maxorder
+                @test ε_arr[l+1] == ε_l(pot_r, ν, l)
+            end
+        end
+    end
+
 end
