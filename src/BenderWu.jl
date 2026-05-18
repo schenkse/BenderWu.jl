@@ -341,15 +341,20 @@ function find_epoly(order::Int, pot::Potential)
         dd[i] = (dd[i] - dd[i-1]) / k
     end
     # Convert Newton form ∑ dd[k+1] · x(x-1)…(x-k+1) to monomial coefficients.
-    coeffs = T[dd[n]]
+    # In-place Horner-like update: walking j from len downward writes
+    # coeffs[j+1] += coeffs[j] using still-fresh coeffs[j], then overwrites
+    # coeffs[j] = -(k-1)*coeffs[j]. The next step (smaller j) supplies the
+    # additive term for the now-overwritten coeffs[j].
+    coeffs = zeros(T, n)
+    coeffs[1] = dd[n]
+    len = 1
     for k = n-1:-1:1
-        new = zeros(T, length(coeffs) + 1)
-        for j in eachindex(coeffs)
-            new[j+1] += coeffs[j]
-            new[j]   -= (k-1) * coeffs[j]
+        for j = len:-1:1
+            coeffs[j+1] += coeffs[j]
+            coeffs[j]    = -(k-1) * coeffs[j]
         end
-        new[1] += dd[k]
-        coeffs = new
+        coeffs[1] += dd[k]
+        len += 1
     end
     return coeffs
 end
