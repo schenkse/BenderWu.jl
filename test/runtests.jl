@@ -133,6 +133,48 @@ using Base.Threads
         end
     end
 
+    @testset "BW recursion index l=2 vanishes for sextic/octic" begin
+        # l is the BW recursion index, not the physical perturbation order.
+        # For leading perturbation degree L, ε_l = 0 whenever l mod L ≠ 0.
+        # Sextic: L=4 — l=2 vanishes, l=4 is the first physical correction.
+        # Octic:  L=6 — l=2 and l=4 vanish, l=6 is the first correction.
+        pot6 = Potential([0.5, 0.0, 0.0, 0.0, 1.0])
+        pot8 = Potential([0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0])
+        for ν in 0:3
+            @test iszero(ε_l(pot6, ν, 2))
+            @test iszero(ε_l(pot8, ν, 2))
+            @test iszero(ε_l(pot8, ν, 4))
+        end
+        @test !iszero(ε_l(pot6, 0, 4))
+        @test !iszero(ε_l(pot8, 0, 6))
+    end
+
+    @testset "find_epoly agrees across BigFloat and Rational precision" begin
+        # Order-10 quartic energy polynomial must match to ~30 decimal digits
+        # whether computed in BigFloat or exact rational arithmetic.
+        pot_bf = Potential(BigFloat.([0.5, 0.0, 1.0]))
+        pot_r  = Potential([1//2, 0//1, 1//1])
+        e_bf   = find_epoly(10, pot_bf)
+        e_r    = find_epoly(10, pot_r)
+        @test length(e_bf) == length(e_r)
+        for (a, b) in zip(e_bf, e_r)
+            @test isapprox(a, BigFloat(b); rtol = BigFloat(10)^-30)
+        end
+    end
+
+    @testset "ε_l memoization: repeated calls hit the cache" begin
+        # Reaches into the private _εl_cache to assert the memoization
+        # contract: calling ε_l with identical arguments must not grow the
+        # cache after the first call. Tied to A2's lock-guarded get!.
+        pot_c = Potential([0.5, 0.0, 1.0])
+        ε_l(pot_c, 0, 4)
+        n_before = length(pot_c._εl_cache)
+        for _ in 1:5
+            ε_l(pot_c, 0, 4)
+        end
+        @test length(pot_c._εl_cache) == n_before
+    end
+
     @testset "Sextic potential (V = x²/2 + x⁶)" begin
         pot6 = Potential([0.5, 0.0, 0.0, 0.0, 1.0])
         # find_epoly + evaluate_epoly must round-trip ε_l for several (ν, l).
