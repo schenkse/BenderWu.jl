@@ -162,6 +162,19 @@ using Base.Threads
         end
     end
 
+    @testset "clear_cache! empties the caches" begin
+        pot_x = Potential([0.5, 0.0, 1.0])
+        ε_l(pot_x, 0, 4)
+        A_kl(pot_x, 1, 3, 2)
+        @test !isempty(pot_x._εl_cache)
+        @test !isempty(pot_x._Akl_cache)
+        @test clear_cache!(pot_x) === pot_x
+        @test isempty(pot_x._εl_cache)
+        @test isempty(pot_x._Akl_cache)
+        # Results must still be reproducible after clearing.
+        @test ε_l(pot_x, 0, 4) ≈ ε_l(Potential([0.5, 0.0, 1.0]), 0, 4)
+    end
+
     @testset "ε_l memoization: repeated calls hit the cache" begin
         # Reaches into the private _εl_cache to assert the memoization
         # contract: calling ε_l with identical arguments must not grow the

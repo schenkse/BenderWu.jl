@@ -3,7 +3,7 @@ module BenderWu
 # Bender-Wu method for perturbative energy levels of polynomial potentials
 # Reference: arXiv:1608.08256
 
-export Potential
+export Potential, clear_cache!
 export max_k, A_kl, ε_l
 export initialize_Akl_eps, fill_Akl!
 export find_epoly, epoly_taylor_derivatives, evaluate_epoly
@@ -89,6 +89,21 @@ function Potential(pairs::AbstractVector{<:Pair{<:Integer,T}}) where T
         vc[p - 1] += c
     end
     return Potential(vc)
+end
+
+"""
+    clear_cache!(pot)
+
+Empty the memoization caches inside `pot` and return `pot`. Useful when
+sweeping over many `(ν, l)` values and you want to bound resident memory
+between batches.
+"""
+function clear_cache!(pot::Potential)
+    lock(pot._cache_lock) do
+        empty!(pot._Akl_cache)
+        empty!(pot._εl_cache)
+    end
+    return pot
 end
 
 """

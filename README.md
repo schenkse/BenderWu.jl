@@ -60,7 +60,7 @@ pot = Potential([2 => 0.5, 4 => 1.0])    # same V(x) as above
 
 The frequency ω is derived automatically from the leading term: ω = √(2·vcoeffs[1]).
 
-Create one `Potential` per potential and reuse it — results are memoized inside the struct and freed automatically when it goes out of scope. Cache access is guarded by a `ReentrantLock`, so a single `Potential` can be shared safely across threads.
+Create one `Potential` per potential and reuse it — results are memoized inside the struct and freed automatically when it goes out of scope. Cache access is guarded by a `ReentrantLock`, so a single `Potential` can be shared safely across threads. If you sweep many `(ν, l)` and want to bound resident memory between batches, call `clear_cache!(pot)`.
 
 ### Energy corrections ε_l(pot, ν, l)
 
@@ -161,6 +161,7 @@ fill_Akl!(Akl, ε, pot, ν, maxorder)
 | Function | Description |
 |---|---|
 | `Potential(vcoeffs)` | Construct a potential from a coefficient vector; owns memoization caches |
+| `clear_cache!(pot)` | Empty the memoization caches inside `pot`; useful for long sweeps |
 | `ε_l(pot, ν, l)` | Perturbative energy correction at order `l` for quantum number `ν` |
 | `A_kl(pot, ν, k, l)` | Wave function expansion coefficient A_{k,l}^(ν) |
 | `max_k(pot, ν, l)` | Upper bound on the k-index at perturbation order `l` |
