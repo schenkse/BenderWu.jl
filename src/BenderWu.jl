@@ -35,9 +35,9 @@ The `vcoeffs` field must not be mutated after construction: caches are keyed
 on these coefficients, and in-place changes would silently invalidate every
 cached value. Construct a new `Potential` for a different polynomial.
 
-Fields prefixed with an underscore (`_max_k_cache`, `_Akl_cache`, `_εl_cache`,
-`_cache_lock`) are internal implementation details. They are not part of the
-public API and may change without notice.
+Fields prefixed with an underscore (`_Akl_cache`, `_εl_cache`, `_cache_lock`)
+are internal implementation details. They are not part of the public API and
+may change without notice.
 
 Cache access is guarded by a `ReentrantLock`, so a single `Potential` may be
 shared safely across threads.
@@ -53,7 +53,6 @@ epoly = find_epoly(2, pot)
 struct Potential{T}
     vcoeffs::Vector{T}
     ω::T
-    _max_k_cache::Dict{Tuple{Int,Int}, Int}
     _Akl_cache::Dict{Tuple{Int,Int,Int}, T}
     _εl_cache::Dict{Tuple{Int,Int}, T}
     _cache_lock::ReentrantLock
@@ -69,7 +68,6 @@ function Potential(vcoeffs::AbstractVector{T}) where T
     Potential(
         collect(T, vcoeffs),
         _compute_ω(first(vcoeffs)),
-        Dict{Tuple{Int,Int}, Int}(),
         Dict{Tuple{Int,Int,Int}, T}(),
         Dict{Tuple{Int,Int}, T}(),
         ReentrantLock(),
@@ -103,16 +101,12 @@ coefficients with k > K_l^(ν) vanish. This bound depends on the degree of the
 leading perturbation term in `pot`.
 """
 function max_k(pot::Potential, ν::Int, l::Int)
-    lock(pot._cache_lock) do
-        get!(pot._max_k_cache, (ν, l)) do
-            vcoeffs = pot.vcoeffs
-            L = findfirst(!iszero, @view vcoeffs[2:end])
-            # Pure harmonic oscillator: no perturbation terms, all higher-order
-            # corrections vanish, so Kl = ν for l=0 and 0 otherwise.
-            isnothing(L) && return iszero(l) ? ν : 0
-            l < L ? (iszero(l) ? ν : 0) : ν + (L + 2) * (l ÷ L) + l % L
-        end
-    end
+    vcoeffs = pot.vcoeffs
+    L = findfirst(!iszero, @view vcoeffs[2:end])
+    # Pure harmonic oscillator: no perturbation terms, all higher-order
+    # corrections vanish, so Kl = ν for l=0 and 0 otherwise.
+    isnothing(L) && return iszero(l) ? ν : 0
+    l < L ? (iszero(l) ? ν : 0) : ν + (L + 2) * (l ÷ L) + l % L
 end
 
 function _compute_ω(v::Rational{T}) where T
