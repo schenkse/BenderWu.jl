@@ -125,7 +125,17 @@ using Base.Threads
         @test ε_l(pot_r, 1, 2) == 15//4
         @test ε_l(pot_r, 2, 2) == 39//4
         # Order 14 must complete without OverflowError
-        @test length(find_epoly(14, pot_r)) == 9
+        epoly14 = find_epoly(14, pot_r)
+        @test length(epoly14) == 9
+        # Ground-state (ν=0) corrections of V = x²/2 + x⁴ are tabulated in
+        # Bender & Wu, Phys. Rev. D 7, 1620 (1973). With BW recursion index
+        # l = k·L (L=2 for quartic), l=14 is physical order 7.
+        # Pin several literature coefficients via the constant term of
+        # find_epoly(l, pot_r), which equals ε_l(pot_r, 0, l).
+        @test find_epoly(8,  pot_r)[1] == -30885 // 128
+        @test find_epoly(10, pot_r)[1] == 916731 // 256
+        @test find_epoly(12, pot_r)[1] == -65518401 // 1024
+        @test epoly14[1]               == 2723294673 // 2048
     end
 
     @testset "A_kl boundary values" begin
