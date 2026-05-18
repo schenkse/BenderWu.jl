@@ -1,5 +1,6 @@
 using Test
 using BenderWu
+using Base.Threads
 
 @testset "BenderWu" begin
 
@@ -178,6 +179,23 @@ using BenderWu
         # Odd orders still vanish identically.
         @test iszero(ε_l(pot_m, 0, 1))
         @test iszero(ε_l(pot_m, 2, 3))
+    end
+
+    @testset "Thread-safe cache (shared Potential, many threads)" begin
+        # Race-detection smoke test: hammer ε_l from many threads on a shared
+        # Potential. Without the ReentrantLock this corrupts the get! Dict and
+        # surfaces as wrong values or rare exceptions.
+        pot_t = Potential([0.5, 0.0, 1.0])
+        expected = [ε_l(Potential([0.5, 0.0, 1.0]), ν, 2*l) for ν in 0:3, l in 0:5]
+        results = Array{Float64}(undef, 4, 6, 32)
+        @threads for trial in 1:32
+            for ν in 0:3, l in 0:5
+                results[ν+1, l+1, trial] = ε_l(pot_t, ν, 2*l)
+            end
+        end
+        for trial in 1:32, ν in 0:3, l in 0:5
+            @test results[ν+1, l+1, trial] == expected[ν+1, l+1]
+        end
     end
 
     @testset "find_epoly at higher order (BigFloat)" begin

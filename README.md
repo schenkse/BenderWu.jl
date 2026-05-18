@@ -60,7 +60,7 @@ pot = Potential([2 => 0.5, 4 => 1.0])    # same V(x) as above
 
 The frequency ω is derived automatically from the leading term: ω = √(2·vcoeffs[1]).
 
-Create one `Potential` per potential and reuse it — results are memoized inside the struct and freed automatically when it goes out of scope.
+Create one `Potential` per potential and reuse it — results are memoized inside the struct and freed automatically when it goes out of scope. Cache access is guarded by a `ReentrantLock`, so a single `Potential` can be shared safely across threads.
 
 ### Energy corrections ε_l(pot, ν, l)
 

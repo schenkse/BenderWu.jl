@@ -35,9 +35,12 @@ The `vcoeffs` field must not be mutated after construction: caches are keyed
 on these coefficients, and in-place changes would silently invalidate every
 cached value. Construct a new `Potential` for a different polynomial.
 
-Fields prefixed with an underscore (`_max_k_cache`, `_Akl_cache`, `_εl_cache`)
-are internal implementation details. They are not part of the public API and
-may change without notice.
+Fields prefixed with an underscore (`_max_k_cache`, `_Akl_cache`, `_εl_cache`,
+`_cache_lock`) are internal implementation details. They are not part of the
+public API and may change without notice.
+
+Cache access is guarded by a `ReentrantLock`, so a single `Potential` may be
+shared safely across threads.
 
 # Example
 ```julia
@@ -53,6 +56,7 @@ struct Potential{T}
     _max_k_cache::Dict{Tuple{Int,Int}, Int}
     _Akl_cache::Dict{Tuple{Int,Int,Int}, T}
     _εl_cache::Dict{Tuple{Int,Int}, T}
+    _cache_lock::ReentrantLock
 end
 
 function Potential(vcoeffs::AbstractVector{T}) where T
@@ -68,6 +72,7 @@ function Potential(vcoeffs::AbstractVector{T}) where T
         Dict{Tuple{Int,Int}, Int}(),
         Dict{Tuple{Int,Int,Int}, T}(),
         Dict{Tuple{Int,Int}, T}(),
+        ReentrantLock(),
     )
 end
 
@@ -98,13 +103,15 @@ coefficients with k > K_l^(ν) vanish. This bound depends on the degree of the
 leading perturbation term in `pot`.
 """
 function max_k(pot::Potential, ν::Int, l::Int)
-    get!(pot._max_k_cache, (ν, l)) do
-        vcoeffs = pot.vcoeffs
-        L = findfirst(!iszero, @view vcoeffs[2:end])
-        # Pure harmonic oscillator: no perturbation terms, all higher-order
-        # corrections vanish, so Kl = ν for l=0 and 0 otherwise.
-        isnothing(L) && return iszero(l) ? ν : 0
-        l < L ? (iszero(l) ? ν : 0) : ν + (L + 2) * (l ÷ L) + l % L
+    lock(pot._cache_lock) do
+        get!(pot._max_k_cache, (ν, l)) do
+            vcoeffs = pot.vcoeffs
+            L = findfirst(!iszero, @view vcoeffs[2:end])
+            # Pure harmonic oscillator: no perturbation terms, all higher-order
+            # corrections vanish, so Kl = ν for l=0 and 0 otherwise.
+            isnothing(L) && return iszero(l) ? ν : 0
+            l < L ? (iszero(l) ? ν : 0) : ν + (L + 2) * (l ÷ L) + l % L
+        end
     end
 end
 
@@ -142,34 +149,36 @@ function A_kl(pot::Potential, ν::Int, k::Int, l::Int)
     if k == ν && l > 0 return zero(T) end
     if k > max_k(pot, ν, l) return zero(T) end
 
-    get!(pot._Akl_cache, (ν, k, l)) do
-        vcoeffs = pot.vcoeffs
-        ω = pot.ω
-        Akl = (k+2) * (k+1) * A_kl(pot, ν, k+2, l)
-        if k > ν && l > 0
-            # Terminate sum for a finite number of terms in the potential
-            # n==l is excluded: it would require ε_l(pot, ν, l), which in turn
-            # calls A_kl(pot, ν, ν+2, l) — still being computed here. The term
-            # vanishes anyway (A_kl(pot, ν, k, 0) = 0 for k > ν), so skipping
-            # it avoids the circular call. fill_Akl! expresses this as 1:l-1.
-            for n=1:l
-                if n != l
-                    Akl += 2 * ε_l(pot, ν, n) * A_kl(pot, ν, k, l-n)
+    lock(pot._cache_lock) do
+        get!(pot._Akl_cache, (ν, k, l)) do
+            vcoeffs = pot.vcoeffs
+            ω = pot.ω
+            Akl = (k+2) * (k+1) * A_kl(pot, ν, k+2, l)
+            if k > ν && l > 0
+                # Terminate sum for a finite number of terms in the potential
+                # n==l is excluded: it would require ε_l(pot, ν, l), which in turn
+                # calls A_kl(pot, ν, ν+2, l) — still being computed here. The term
+                # vanishes anyway (A_kl(pot, ν, k, 0) = 0 for k > ν), so skipping
+                # it avoids the circular call. fill_Akl! expresses this as 1:l-1.
+                for n=1:l
+                    if n != l
+                        Akl += 2 * ε_l(pot, ν, n) * A_kl(pot, ν, k, l-n)
+                    end
+                    if n+1 > length(vcoeffs) continue end
+                    if iszero(vcoeffs[n+1]) continue end
+                    Akl += -2 * vcoeffs[n+1] * A_kl(pot, ν, k-n-2, l-n)
                 end
-                if n+1 > length(vcoeffs) continue end
-                if iszero(vcoeffs[n+1]) continue end
-                Akl += -2 * vcoeffs[n+1] * A_kl(pot, ν, k-n-2, l-n)
+            else
+                # Terminate sum for a finite number of terms in the potential
+                for n=1:l
+                    Akl += 2 * ε_l(pot, ν, n) * A_kl(pot, ν, k, l-n)
+                    if n+1 > length(vcoeffs) continue end
+                    if iszero(vcoeffs[n+1]) continue end
+                    Akl += -2 * vcoeffs[n+1] * A_kl(pot, ν, k-n-2, l-n)
+                end
             end
-        else
-            # Terminate sum for a finite number of terms in the potential
-            for n=1:l
-                Akl += 2 * ε_l(pot, ν, n) * A_kl(pot, ν, k, l-n)
-                if n+1 > length(vcoeffs) continue end
-                if iszero(vcoeffs[n+1]) continue end
-                Akl += -2 * vcoeffs[n+1] * A_kl(pot, ν, k-n-2, l-n)
-            end
+            return Akl / (2 * ω * (k - ν))
         end
-        return Akl / (2 * ω * (k - ν))
     end
 end
 
@@ -201,16 +210,18 @@ function ε_l(pot::Potential, ν::Int, l::Int)
     ω = pot.ω
     if iszero(l) return ω * (ν + one(T)/2) end
 
-    get!(pot._εl_cache, (ν, l)) do
-        vcoeffs = pot.vcoeffs
-        ε = -(ν+2) * (ν+1) ÷ 2 * A_kl(pot, ν, ν+2, l)
-        # Terminate sum for a finite number of terms in the potential
-        for n=1:l
-            if n+1 > length(vcoeffs) continue end
-            if iszero(vcoeffs[n+1]) continue end
-            ε += vcoeffs[n+1] * A_kl(pot, ν, ν-n-2, l-n)
+    lock(pot._cache_lock) do
+        get!(pot._εl_cache, (ν, l)) do
+            vcoeffs = pot.vcoeffs
+            ε = -(ν+2) * (ν+1) ÷ 2 * A_kl(pot, ν, ν+2, l)
+            # Terminate sum for a finite number of terms in the potential
+            for n=1:l
+                if n+1 > length(vcoeffs) continue end
+                if iszero(vcoeffs[n+1]) continue end
+                ε += vcoeffs[n+1] * A_kl(pot, ν, ν-n-2, l-n)
+            end
+            return ε
         end
-        return ε
     end
 end
 
