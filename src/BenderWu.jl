@@ -374,7 +374,11 @@ function epoly_taylor_derivatives(epoly)
     T = typeof(epoly[1])
     ds = Array{T}(undef, length(epoly)-1)
     for k in 1:length(epoly)-1
-        ds[k] = factorial(big(k)) * epoly[k+1]
+        # factorial(20) fits in Int64 but factorial(21) overflows — switch to
+        # BigInt at the threshold to avoid OverflowError while keeping the
+        # cheap path for typical (small-order) inputs.
+        fact_k = k < 20 ? factorial(k) : factorial(big(k))
+        ds[k] = fact_k * epoly[k+1]
     end
     return ds
 end
