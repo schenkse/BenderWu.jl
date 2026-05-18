@@ -76,6 +76,18 @@ Create one `Potential` per potential and reuse it — results are memoized insid
 
 Odd-order corrections vanish identically and are returned as exact zero.
 
+#### `l` is the BW recursion index, not the physical perturbation order
+
+The argument `l` is the Bender–Wu recursion index. Let `L` be the index of the first non-zero entry in `vcoeffs[2:end]` (so `L = 2` for a quartic, `L = 4` for a sextic, `L = 6` for an octic). The physical perturbation order `k` is related to `l` by `l = k·L`, and `ε_l(pot, ν, l) = 0` whenever `l mod L ≠ 0`. For a quartic these coincide, but for higher-degree leading perturbations they do not.
+
+**Worked sextic example** (V = x²/2 + x⁶, so `L = 4`):
+
+```julia
+pot6 = Potential([0.5, 0.0, 0.0, 0.0, 1.0])
+ε_l(pot6, 0, 2)   # → 0.0     (no physical correction here — l = 2 is below L)
+ε_l(pot6, 0, 4)   # ≠ 0       (first physical correction)
+```
+
 ### Energy polynomial in ν
 
 At each fixed perturbation order, the correction is a polynomial in ν. `find_epoly` fits that polynomial; `evaluate_epoly` evaluates it.

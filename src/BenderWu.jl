@@ -182,6 +182,16 @@ perturbation order `l`.
 Odd orders vanish identically. Order l=0 returns the unperturbed harmonic
 energy ω·(ν + 1/2), where ω = √(2·vcoeffs[1]). Results for even orders are
 cached inside `pot`.
+
+# `l` is the BW recursion index, not the physical perturbation order
+
+Let `L` be the index of the first non-zero entry in `vcoeffs[2:end]` (so `L = 2`
+for a quartic potential, `L = 4` for a sextic, `L = 6` for an octic). Bender–Wu
+indexes corrections by the recursion order `l`, related to the physical
+perturbation order `k` by `l = k·L`. Consequently `ε_l(pot, ν, l) = 0` whenever
+`l mod L ≠ 0` — for a sextic, `ε_l(pot, ν, 2) = 0` and the first non-zero
+correction sits at `l = 4`. See the "Energy corrections" section of the README
+for a worked sextic example.
 """
 function ε_l(pot::Potential, ν::Int, l::Int)
     T = eltype(pot.vcoeffs)
