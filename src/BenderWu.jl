@@ -159,9 +159,7 @@ Boundary conditions:
 - Returns `zero` for k < 0, l < 0, or k > K_l^(ν)
 - Returns `one` for k == ν, l == 0 (normalisation)
 """
-function A_kl(pot::Potential, ν::Int, k::Int, l::Int)
-    T = eltype(pot.vcoeffs)
-
+function A_kl(pot::Potential{T}, ν::Int, k::Int, l::Int) where T
     # Cheap boundary cases — not worth caching
     if k < 0 || l < 0 return zero(T) end
     if k > ν && iszero(l) return zero(T) end
@@ -222,9 +220,7 @@ perturbation order `k` by `l = k·L`. Consequently `ε_l(pot, ν, l) = 0` whenev
 correction sits at `l = 4`. See the "Energy corrections" section of the README
 for a worked sextic example.
 """
-function ε_l(pot::Potential, ν::Int, l::Int)
-    T = eltype(pot.vcoeffs)
-
+function ε_l(pot::Potential{T}, ν::Int, l::Int) where T
     # Cheap boundary cases — not worth caching
     if isodd(l) return zero(T) end
     ω = pot.ω
