@@ -5,7 +5,7 @@ module BenderWu
 
 export Potential, clear_cache!
 export max_k, A_kl, ε_l
-export initialize_Akl_eps, fill_Akl!
+export initialize_Akl_eps, fill_Akl!, eigenstate_coeffs
 export find_epoly, epoly_taylor_derivatives, evaluate_epoly
 
 """
@@ -307,6 +307,41 @@ function fill_Akl!(Akl, ε, pot::Potential, ν::Int, maxorder::Int)
         end
     end
     nothing
+end
+
+"""
+    eigenstate_coeffs(pot, ν, l)
+
+Return the 2D array of wave function expansion coefficients A_{k,l}^(ν) up to
+BW recursion order `l` for quantum number `ν`.
+
+The ν-th perturbed eigenstate is expanded as ψ_ν(x) = e^{-ω x² / 2}·∑_l λ^l ∑_k
+A_{k,l}^(ν) · x^k (λ is the coupling). This function returns the full coefficient
+table A_{k,l}^(ν), packed into a single 2D array indexed as `Akl[k+1, l+1]`
+(1-based offset matches [`fill_Akl!`](@ref)). The k=ν entry of the zeroth-order
+column is fixed by normalisation (`Akl[ν+1, 1] == one(T)`); other entries in
+that column encode the Hermite-like polynomial of the unperturbed eigenstate
+and are generally non-zero for ν ≥ 2.
+
+This is a convenience wrapper around [`initialize_Akl_eps`](@ref) followed by
+[`fill_Akl!`](@ref) for callers who want only the eigenstate coefficients and
+not the energy-correction array. Element type matches `eltype(pot.vcoeffs)`.
+
+# `l` is the BW recursion index
+See the [`ε_l`](@ref) docstring for the relation `l = k·L` between the BW
+recursion index and the physical perturbation order.
+
+# Example
+```julia
+pot = Potential([0.5, 0.0, 1.0])      # V = x²/2 + x⁴
+Akl = eigenstate_coeffs(pot, 0, 4)    # ground state, up to BW order 4
+Akl[1, 1] == 1.0                       # unperturbed ground state coefficient
+```
+"""
+function eigenstate_coeffs(pot::Potential, ν::Int, l::Int)
+    Akl, ε = initialize_Akl_eps(pot, ν, l)
+    fill_Akl!(Akl, ε, pot, ν, l)
+    return Akl
 end
 
 """

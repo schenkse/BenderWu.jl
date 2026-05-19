@@ -326,6 +326,45 @@ using Base.Threads
         end
     end
 
+    @testset "eigenstate_coeffs returns the A_kl matrix" begin
+        # Thin wrapper over initialize_Akl_eps + fill_Akl!. Must match the
+        # iterative-path layout exactly: Akl[k+1, l+1] = A_kl(pot, ν, k, l).
+        maxorder = 4
+        for ν in 0:3
+            Akl = eigenstate_coeffs(pot, ν, maxorder)
+            # Size matches initialize_Akl_eps.
+            kmax = max(ν, max_k(pot, ν, maxorder))
+            @test size(Akl) == (kmax + 3, maxorder + 1)
+            # Normalisation: the k = ν entry of the zeroth-order column is 1.
+            @test Akl[ν+1, 1] == 1.0
+            # Full agreement with the recursive path on every (k, l) cell —
+            # this also implicitly covers the Hermite-like structure of the
+            # zeroth-order column for ν ≥ 2.
+            for l in 0:maxorder, k in 0:kmax
+                @test Akl[k+1, l+1] ≈ A_kl(pot, ν, k, l)
+            end
+        end
+
+        # Element type follows eltype(pot.vcoeffs).
+        @test eltype(eigenstate_coeffs(pot, 0, 2)) == Float64
+        pot_bf = Potential(BigFloat.([0.5, 0.0, 1.0]))
+        @test eltype(eigenstate_coeffs(pot_bf, 0, 2)) == BigFloat
+        pot_r = Potential([1//2, 0//1, 1//1])
+        Akl_r = eigenstate_coeffs(pot_r, 1, 4)
+        @test eltype(Akl_r) == Rational{BigInt}
+        # Exact agreement with the recursive path under rational arithmetic.
+        for l in 0:4, k in 0:size(Akl_r, 1) - 1
+            @test Akl_r[k+1, l+1] == A_kl(pot_r, 1, k, l)
+        end
+
+        # Sextic: first physical correction sits at BW recursion order l = 4.
+        pot6 = Potential([0.5, 0.0, 0.0, 0.0, 1.0])
+        Akl6 = eigenstate_coeffs(pot6, 0, 4)
+        for l in 0:4, k in 0:size(Akl6, 1) - 1
+            @test Akl6[k+1, l+1] ≈ A_kl(pot6, 0, k, l)
+        end
+    end
+
     @testset "Iterative path with Rational coefficients (exact)" begin
         # All prior iterative-path tests use Float64. Cover the iterative path
         # under exact Rational{BigInt} arithmetic: results must be type-stable

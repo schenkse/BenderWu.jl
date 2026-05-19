@@ -156,6 +156,17 @@ fill_Akl!(Akl, ε, pot, ν, maxorder)
 
 **Which API to use?** Reach for `fill_Akl!` whenever you need many orders at a fixed ν — it is type-stable and substantially faster than repeated `ε_l` calls. Use the recursive `ε_l` / `A_kl` for ad-hoc single-value queries or when you do not know up front how many orders you will need; results are memoized inside `pot` and reused across calls. For very high orders (`l` in the hundreds, plausible in BigFloat asymptotic studies) prefer `fill_Akl!` — the recursive path can exhaust Julia's default stack at that depth.
 
+### Wave-function coefficients
+
+If you only need the eigenstate expansion (no energy-correction array), `eigenstate_coeffs` is a thin wrapper around `initialize_Akl_eps` + `fill_Akl!` that returns just the 2D coefficient matrix:
+
+```julia
+Akl = eigenstate_coeffs(pot, 0, 4)   # ground state coefficients up to BW order 4
+Akl[1, 1] == 1.0                      # k = ν normalisation at order 0
+```
+
+The matrix is indexed as `Akl[k+1, l+1]` (1-based offset), where `k` is the BW expansion index and `l` is the BW recursion order. The ν-th perturbed eigenstate is ψ_ν(x) = e^{-ω x² / 2}·∑_l λ^l ∑_k Akl[k+1, l+1] · x^k, with λ the coupling and ω = √(2·vcoeffs[1]).
+
 ## API reference
 
 | Function | Description |
@@ -170,6 +181,7 @@ fill_Akl!(Akl, ε, pot, ν, maxorder)
 | `epoly_taylor_derivatives(epoly)` | Derivatives of an energy polynomial evaluated at ν = 0 (entry `k` is the k-th derivative) |
 | `initialize_Akl_eps(pot, ν, l)` | Allocate zero arrays for the iterative solver |
 | `fill_Akl!(Akl, ε, pot, ν, maxorder)` | Fill pre-allocated arrays in-place (iterative, type-stable) |
+| `eigenstate_coeffs(pot, ν, l)` | Wave function expansion coefficients up to BW recursion order `l` (2D array) |
 
 ## Tests
 
