@@ -140,7 +140,7 @@ function _compute_ω(v::Rational{T}) where T
     n, d = numerator(two_v), denominator(two_v)
     sn, sd = isqrt(n), isqrt(d)
     sn^2 == n && sd^2 == d ||
-        error("2·vcoeffs[1] = $two_v is not a perfect rational square; ω is irrational")
+        throw(ArgumentError("2·vcoeffs[1] = $two_v is not a perfect rational square; ω is irrational"))
     return Rational{T}(sn, sd)
 end
 _compute_ω(v) = sqrt(2 * v)
