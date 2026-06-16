@@ -1,6 +1,7 @@
 using Test
 using BenderWu
 using Base.Threads
+using Aqua
 
 @testset "BenderWu" begin
 
@@ -415,6 +416,14 @@ using Base.Threads
         @test ds[19] == factorial(19)        # last Int-factorial step  (k < 20)
         @test ds[20] == factorial(big(20))   # first BigInt step        (k ≥ 20)
         @test ds[21] == factorial(big(21))   # overflows Int64 — exact via BigInt
+    end
+
+    @testset "Aqua quality assurance" begin
+        # Standard Julia package-hygiene checks: method ambiguities, undefined
+        # exports, unbound type parameters, stale/undeclared deps, missing
+        # compat bounds, type piracy. Expected to pass cleanly (zero runtime
+        # deps, strictly-more-specific Potential constructors).
+        Aqua.test_all(BenderWu)
     end
 
 end
