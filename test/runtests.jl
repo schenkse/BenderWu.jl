@@ -383,4 +383,38 @@ using Base.Threads
         end
     end
 
+    @testset "Irrational rational ω is rejected with ArgumentError" begin
+        # 2·(1//3) = 2//3 is not a perfect rational square, so ω would be
+        # irrational. Must surface as ArgumentError, consistent with every
+        # other construction-time validation failure.
+        @test_throws ArgumentError Potential([1//3, 0//1, 1//1])
+    end
+
+    @testset "find_epoly returns an all-zero vector at odd order" begin
+        # Odd-order corrections vanish identically; find_epoly short-circuits
+        # to zeros sized to match the next-lower even order (order ÷ 2 + 2).
+        e3 = find_epoly(3, pot)
+        @test length(e3) == 3            # == length(find_epoly(2, pot))
+        @test all(iszero, e3)
+        @test eltype(e3) == Float64
+        # Exact arithmetic: odd order returns exact rational zeros.
+        pot_r = Potential([1//2, 0//1, 1//1])
+        e5 = find_epoly(5, pot_r)
+        @test length(e5) == 4            # 5 ÷ 2 + 2
+        @test all(iszero, e5)
+        @test eltype(e5) == Rational{BigInt}
+    end
+
+    @testset "epoly_taylor_derivatives BigInt-factorial branch (k ≥ 20)" begin
+        # Exercise the k ≥ 20 path (factorial(big(k))) without an expensive
+        # high-order find_epoly: a synthetic length-22 epoly makes k run 1:21.
+        # All-ones rational coefficients let us pin the exact factorial values.
+        epoly_big = [big(1)//1 for _ in 1:22]
+        ds = epoly_taylor_derivatives(epoly_big)
+        @test length(ds) == 21
+        @test ds[19] == factorial(19)        # last Int-factorial step  (k < 20)
+        @test ds[20] == factorial(big(20))   # first BigInt step        (k ≥ 20)
+        @test ds[21] == factorial(big(21))   # overflows Int64 — exact via BigInt
+    end
+
 end
