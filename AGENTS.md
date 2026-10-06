@@ -53,6 +53,17 @@ For rational potentials, `_compute_ω` is dispatched to an exact method that use
 
 ## Conventions
 
+### Pull requests and releases
+
+* Start each feature or fix on its own branch from the latest `main`.
+* Open draft pull requests targeting `main`; do not use `dev` as an integration branch.
+* Rebase onto the latest `main` before opening a pull request when explicitly authorized to rebase.
+* Use conventional commit style for pull request titles.
+* Describe the problem, solution, and validation concisely.
+* Disclose substantial agent-generated changes in the pull request description.
+* Follow `CONTRIBUTING.md` for CI and release preparation.
+* Release version changes and `.github/release-notes/vX.Y.Z.md` go through a pull request into `main` before tagging.
+
 ### Git commits
 
 Use conventional commits: `<type>[optional scope]: <description>`
