@@ -538,6 +538,31 @@ using Aqua
         @test ds[21] == factorial(big(21))   # overflows Int64 — exact via BigInt
     end
 
+    @testset "fill_Akl! skips only vanishing cells" begin
+        # One potential per order step d: harmonic (0), cubic+quartic (1),
+        # quartic (2), quintic (3), sextic (4), sextic+octic (2 from {4, 6}).
+        # Buffers are pre-filled with junk, so skipped cells must be reset to
+        # zero; the recursive A_kl/ε_l path serves as the oracle.
+        pots = [
+            [1//2],
+            [1//2, 1//1, 1//1],
+            [1//2, 0//1, 1//1],
+            [1//2, 0//1, 0//1, 1//1],
+            [1//2, 0//1, 0//1, 0//1, 1//1],
+            [1//2, 0//1, 0//1, 0//1, 1//1, 0//1, 1//1],
+        ]
+        maxorder = 12
+        for vc in pots, ν in 0:3
+            pot = Potential(vc)
+            Akl, ε = initialize_Akl_eps(pot, ν, maxorder)
+            fill!(Akl, 7//1); fill!(ε, 7//1)
+            fill_Akl!(Akl, ε, pot, ν, maxorder)
+            @test all(Akl[k+1, l+1] == A_kl(pot, ν, k, l)
+                      for k in 0:size(Akl, 1)-1, l in 0:maxorder)
+            @test all(ε[l+1] == ε_l(pot, ν, l) for l in 0:maxorder)
+        end
+    end
+
     @testset "Aqua quality assurance" begin
         # Standard Julia package-hygiene checks: method ambiguities, undefined
         # exports, unbound type parameters, stale/undeclared deps, missing
