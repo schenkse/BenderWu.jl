@@ -1,7 +1,8 @@
 #!/usr/bin/env julia
 # Loads benchmark/results_julia.json and benchmark/results_mma.json, validates
-# that ε_l agree exactly across implementations, draws plots, and writes
-# BENCHMARKS.md at the repo root.
+# that both sides ran the same cases and agree exactly on ε_l, draws plots, and
+# writes BENCHMARKS.md at the repo root. Any validation failure throws before
+# anything is written.
 #
 # Usage:
 #   julia --project=benchmark benchmark/aggregate.jl
@@ -44,42 +45,79 @@ function parse_eps(s::AbstractString)
 end
 
 """
-Compare two exact ε vectors on the union of even-l indices. The Mathematica
-list is {ε_0, ε_2, ε_4, ...}; the Julia list is {ε_0, ε_1, ε_2, ...} with
-odd-l entries zero. We compare jl_eps[2k+1] with mma_eps[k+1].
+Check one cell's ε vectors and return a list of problems (empty if they agree).
+N is the highest power of g. Julia stores ε_0, ε_1, …, ε_N with odd-l entries
+zero; Mathematica stores ε_0, ε_2, …, ε_N.
 """
-function compare_eps(jl_eps::Vector, mma_eps::Vector)
-    n = min(length(mma_eps), (length(jl_eps) - 1) ÷ 2 + 1)
-    for k in 0:(n-1)
-        if jl_eps[2k + 1] != mma_eps[k + 1]
-            return false
-        end
-    end
-    return true
+function eps_problems(jl_eps::Vector, mma_eps::Vector, N::Int)
+    problems = String[]
+    length(jl_eps) == N + 1 ||
+        push!(problems, "Julia has $(length(jl_eps)) entries, expected $(N + 1)")
+    length(mma_eps) == N ÷ 2 + 1 ||
+        push!(problems, "Mathematica has $(length(mma_eps)) entries, expected $(N ÷ 2 + 1)")
+    isempty(problems) || return problems
+    all(iszero, jl_eps[2:2:end]) ||
+        push!(problems, "Julia has nonzero odd-order entries")
+    jl_eps[1:2:end] == mma_eps ||
+        push!(problems, "even-order ε_l differ")
+    return problems
 end
 
 # ---------------------------------------------------------------------------
 # Joining
 
+const Key = Tuple{String, Int, Int}
+
+"""
+Index one side's results by (potential, ν, N), throwing on duplicate keys.
+"""
+function index_results(results, side)
+    by = Dict{Key, Any}()
+    for r in results
+        k = (String(r.potential), Int(r.nu), Int(r.N))
+        haskey(by, k) && error("duplicate $side result for $k")
+        by[k] = r
+    end
+    return by
+end
+
+"""
+Join Julia and Mathematica results cell by cell. Throws if either side is
+missing a case, if there are no cases, or if any ε vector disagrees.
+"""
 function join_results(jl, mma)
-    key(r) = (String(r.potential), Int(r.nu), Int(r.N))
-    mma_by = Dict(key(r) => r for r in mma.results)
+    jl_by  = index_results(jl.results, "Julia")
+    mma_by = index_results(mma.results, "Mathematica")
+
+    only_jl  = sort!(collect(setdiff(keys(jl_by), keys(mma_by))))
+    only_mma = sort!(collect(setdiff(keys(mma_by), keys(jl_by))))
+    if !isempty(only_jl) || !isempty(only_mma)
+        error("result sets differ.\n  missing in Mathematica: $only_jl\n",
+              "  missing in Julia: $only_mma")
+    end
+    isempty(jl_by) && error("no benchmark results to compare")
+
     rows = []
-    for j in jl.results
-        m = get(mma_by, key(j), nothing)
-        m === nothing && continue
+    failures = String[]
+    for k in sort!(collect(keys(jl_by)))
+        j, m = jl_by[k], mma_by[k]
         jl_eps  = [parse_eps(s) for s in j.epsilons]
         mma_eps = [parse_eps(s) for s in m.epsilons]
-        matched = compare_eps(jl_eps, mma_eps)
+        for p in eps_problems(jl_eps, mma_eps, k[3])
+            push!(failures, "$(k[1]) ν=$(k[2]) N=$(k[3]): $p")
+        end
         push!(rows, (
-            potential = String(j.potential),
-            nu = Int(j.nu),
-            N = Int(j.N),
+            potential = k[1],
+            nu = k[2],
+            N = k[3],
             jl_ms  = Float64(j.time_ns_median) / 1e6,
             mma_ms = Float64(m.time_ns_median) / 1e6,
             ratio  = Float64(m.time_ns_median) / Float64(j.time_ns_median),
-            matched = matched,
         ))
+    end
+    if !isempty(failures)
+        foreach(f -> println("  MISMATCH: ", f), failures)
+        error("$(length(failures)) validation failure(s); nothing written")
     end
     return rows
 end
@@ -87,12 +125,15 @@ end
 # ---------------------------------------------------------------------------
 # Plotting
 
+# Potential names in POTENTIALS order, restricted to those present in rows.
+potential_names(rows) = [p.name for p in POTENTIALS if any(r -> r.potential == p.name, rows)]
+
 function plot_per_potential(rows)
     paths = String[]
-    for pot in unique(r.potential for r in rows)
+    for pot in potential_names(rows)
         sub = filter(r -> r.potential == pot, rows)
         nus = sort!(unique(r.nu for r in sub))
-        plt = plot(; xlabel = "perturbation order N",
+        plt = plot(; xlabel = "maximum power of g, N",
                    ylabel = "median time (ms)",
                    yscale = :log10,
                    title  = "$pot — exact rational arithmetic",
@@ -114,14 +155,13 @@ function plot_per_potential(rows)
 end
 
 function plot_speedup(rows)
-    isempty(rows) && return nothing
-    plt = plot(; xlabel = "perturbation order N",
+    plt = plot(; xlabel = "maximum power of g, N",
                ylabel = "Mathematica / Julia (median time ratio)",
                yscale = :log10,
                title  = "Speedup factor — exact rational arithmetic",
                legend = :topright,
                size   = (800, 500))
-    for pot in unique(r.potential for r in rows)
+    for pot in potential_names(rows)
         rs = sort(filter(r -> r.potential == pot && r.nu == 0, rows),
                   by = r -> r.N)
         isempty(rs) && continue
@@ -152,19 +192,19 @@ function fmt_ratio(x)
 end
 
 function write_report(rows, jl_machine, mma_machine; outpath)
-    n_total = length(rows)
-    n_match = count(r -> r.matched, rows)
+    pots = potential_names(rows)
 
     io = IOBuffer()
     println(io, "# BenderWu — Julia vs Mathematica benchmarks\n")
     println(io, "Comparison of this Julia package against the reference Mathematica")
-    println(io, "implementation `BenderWu.m` (arXiv:1608.08256). Both")
-    println(io, "implementations compute the perturbative energy corrections ε_l for")
-    println(io, "l = 0…N at fixed quantum number ν using the polynomial potentials")
-    println(io, "shown below.\n")
+    println(io, "implementation `BenderWu.m` ([arXiv:1608.08256](https://arxiv.org/abs/1608.08256)). Both")
+    println(io, "implementations compute the perturbative energy corrections ε_l of")
+    println(io, "E = Σ ε_l g^l at fixed quantum number ν for the polynomial potentials")
+    println(io, "shown below. N is the highest power of g: Julia computes l = 0…N, and")
+    println(io, "Mathematica is called as `BenderWu[V, x, ν, N/2]`, since its order")
+    println(io, "argument counts powers of g².\n")
 
-    println(io, "Only **exact-rational arithmetic** is benchmarked. A Float64 vs")
-    println(io, "MachinePrecision comparison would not be apples-to-apples:")
+    println(io, "Only **exact-rational arithmetic** is benchmarked.")
     println(io, "Mathematica's `BenderWu` evaluates the recursion through its")
     println(io, "symbolic term-rewriting pipeline regardless of coefficient")
     println(io, "precision, so the gap there mostly measures evaluator overhead")
@@ -181,40 +221,30 @@ function write_report(rows, jl_machine, mma_machine; outpath)
     println(io, "| OS         | $(jl_machine["os"]) / $(jl_machine["arch"]) |")
     println(io)
 
-    println(io, "Julia timings come from `BenchmarkTools.@benchmark` (median over")
-    println(io, "many samples, with a fresh `Potential` per sample so caches are")
-    println(io, "cold). Mathematica timings come from `RepeatedTiming` which")
-    println(io, "averages an automatically chosen number of repetitions.\n")
+    println(io, "Both sides report the median over up to 50 samples within a 5 s")
+    println(io, "budget per case, after a warm-up call. Julia uses")
+    println(io, "`BenchmarkTools.@benchmark` with a fresh `Potential` per sample so")
+    println(io, "caches are cold; Mathematica uses `AbsoluteTiming` in a loop with")
+    println(io, "the same limits.\n")
 
     println(io, "## Validation\n")
-    println(io, "Both implementations were checked to agree on ε_l (even orders)")
-    println(io, "before timings were recorded — bit-for-bit equality on rationals.\n")
-    println(io, "**$(n_match)/$(n_total)** cases match exactly.\n")
+    println(io, "For every case, Julia's ε vector has N + 1 entries with all odd")
+    println(io, "orders zero, Mathematica's has N/2 + 1 entries, and after dropping")
+    println(io, "Julia's odd orders the two vectors are identical — bit-for-bit")
+    println(io, "equality on rationals. Both sides ran the same set of cases.\n")
+    println(io, "**$(length(rows))/$(length(rows))** cases match exactly.\n")
 
-    if n_match < n_total
-        println(io, "Mismatched cells:\n")
-        println(io, "| potential | ν | N |")
-        println(io, "|---|---|---|")
-        for r in rows
-            r.matched && continue
-            println(io, "| $(r.potential) | $(r.nu) | $(r.N) |")
-        end
-        println(io)
-    end
-
-    println(io, "## Results\n")
-    println(io, "| potential | ν | N | Julia | Mathematica | speedup |")
-    println(io, "|---|---|---|---:|---:|---:|")
-    for r in sort(rows, by = r -> (r.potential, r.nu, r.N))
-        println(io, "| $(r.potential) | $(r.nu) | $(r.N) | ",
-                fmt_ms(r.jl_ms), " ms | ",
-                fmt_ms(r.mma_ms), " ms | ",
-                fmt_ratio(r.ratio), " |")
+    println(io, "## Potentials\n")
+    println(io, "| name | V(x) |")
+    println(io, "|---|---|")
+    for p in POTENTIALS
+        p.name in pots && println(io, "| $(p.name) | $(p.display) |")
     end
     println(io)
 
+    println(io, "## Results\n")
     println(io, "### Per-potential timings\n")
-    for pot in sort!(unique(r.potential for r in rows))
+    for pot in pots
         img = "benchmark/plots/$(pot).png"
         isfile(joinpath(ROOT, img)) || continue
         println(io, "![$pot]($img)\n")
@@ -227,6 +257,18 @@ function write_report(rows, jl_machine, mma_machine; outpath)
         println(io, "(at ν = 0). Higher is better for Julia.\n")
         println(io, "![Speedup]($speedup_path)\n")
     end
+
+    println(io, "### Timing table\n")
+    println(io, "| potential | ν | N | Julia | Mathematica | speedup |")
+    println(io, "|---|---|---|---:|---:|---:|")
+    order = Dict(name => i for (i, name) in enumerate(pots))
+    for r in sort(rows, by = r -> (order[r.potential], r.nu, r.N))
+        println(io, "| $(r.potential) | $(r.nu) | $(r.N) | ",
+                fmt_ms(r.jl_ms), " ms | ",
+                fmt_ms(r.mma_ms), " ms | ",
+                fmt_ratio(r.ratio), " |")
+    end
+    println(io)
 
     println(io, "## Reproducing\n")
     println(io, "See [benchmark/README.md](benchmark/README.md) for the exact")
@@ -245,13 +287,7 @@ function main()
     mma = load_results(joinpath(@__DIR__, "results_mma.json"))
 
     rows = join_results(jl, mma)
-    println("Joined ", length(rows), " cases shared between Julia and Mathematica.")
-    n_match = count(r -> r.matched, rows)
-    println("  $n_match/$(length(rows)) match exactly.")
-    for r in rows
-        r.matched && continue
-        @printf("  MISMATCH: %s ν=%d N=%d\n", r.potential, r.nu, r.N)
-    end
+    println("All $(length(rows)) cases match exactly.")
 
     plot_per_potential(rows)
     plot_speedup(rows)

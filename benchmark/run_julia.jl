@@ -20,7 +20,8 @@ BenchmarkTools.DEFAULT_PARAMETERS.seconds = 5.0
 BenchmarkTools.DEFAULT_PARAMETERS.samples = 50
 
 """
-Build a Rational{BigInt} Potential and time the iterative fill_Akl! call.
+Build a Rational{BigInt} Potential and time the iterative fill_Akl! call for
+orders l = 0:N, where N is the highest power of g.
 Each sample uses a fresh Potential so caches are cold — this matches what
 Mathematica does (every call recomputes from scratch).
 """
