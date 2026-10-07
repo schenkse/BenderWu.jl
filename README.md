@@ -165,7 +165,18 @@ find_epoly(4, pot_r)   # → [-21//8, -59//8, -51//8, -17//4]
 end
 ```
 
-Float64, BigFloat, and Rational potentials each carry independent caches; no manual flushing is needed.
+A `BigFloat` potential uses the precision and rounding mode active when it was constructed. Calling it under a different `setprecision` throws an `ArgumentError` rather than returning values computed at the old precision. For more digits, build a new potential inside `setprecision`:
+
+```julia
+ε_256 = setprecision(256) do
+    pot_256 = Potential(BigFloat.([0.5, 0.0, 1.0]))
+    find_epoly(20, pot_256)
+end
+```
+
+Start from exact inputs: `BigFloat.([0.5, 0.0, 1.0])` is exact, but `BigFloat(0.1)` already carries Float64 rounding error, and raising the precision cannot recover digits lost in the coefficients.
+
+Each `Potential` carries its own caches, so Float64, BigFloat, and Rational potentials never share cached values.
 
 ### Iterative (type-stable) API
 

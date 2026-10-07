@@ -240,6 +240,57 @@ using Aqua
         @test ε_l(pot_x, 0, 4) ≈ ε_l(Potential([0.5, 0.0, 1.0]), 0, 4)
     end
 
+    @testset "BigFloat potential is bound to its construction precision" begin
+        # Issue #7: cached values and ω must not leak across precisions.
+        pot_64 = setprecision(64) do
+            p = Potential(BigFloat.([0.5, 0.0, 1.0]))
+            ε_l(p, 0, 4)
+            p
+        end
+        setprecision(256) do
+            @test_throws ArgumentError ε_l(pot_64, 0, 4)
+            @test_throws ArgumentError A_kl(pot_64, 0, 2, 2)
+            @test_throws ArgumentError fill_Akl!(initialize_Akl_eps(pot_64, 0, 4)..., pot_64, 0, 4)
+            @test_throws ArgumentError find_epoly(4, pot_64)
+            @test_throws ArgumentError eigenstate_coeffs(pot_64, 0, 4)
+            @test precision(ε_l(Potential(BigFloat.([0.5, 0.0, 1.0])), 0, 4)) == 256
+        end
+
+        # BigInt inputs promoted to BigFloat bind to the same context.
+        pot_bigint = setprecision(64) do
+            p = Potential(big.([1, 0, 1]))
+            @test ε_l(p, 0, 2) ≈ BigFloat(3)/8
+            Akl, ε = initialize_Akl_eps(p, 0, 2)
+            fill_Akl!(Akl, ε, p, 0, 2)
+            @test ε[3] ≈ ε_l(p, 0, 2)
+            p
+        end
+        setprecision(256) do
+            @test_throws ArgumentError ε_l(pot_bigint, 0, 2)
+        end
+
+        # Clearing the cache does not rebind ω (non-unit ω).
+        pot_ω = setprecision(() -> Potential(BigFloat.([1.0, 0.0, 1.0])), 64)
+        clear_cache!(pot_ω)
+        setprecision(256) do
+            @test_throws ArgumentError ε_l(pot_ω, 0, 4)
+        end
+        setprecision(64) do
+            @test precision(ε_l(pot_ω, 0, 4)) == 64
+            @test precision(pot_ω.ω) == 64
+        end
+
+        pot_bf = Potential(BigFloat.([0.5, 0.0, 1.0]))
+        setrounding(BigFloat, RoundUp) do
+            @test_throws ArgumentError ε_l(pot_bf, 0, 2)
+        end
+
+        # Fixed-precision types have no context to bind to.
+        setprecision(256) do
+            @test ε_l(pot, 0, 2) ≈ 3/4
+        end
+    end
+
     @testset "ε_l memoization: repeated calls hit the cache" begin
         # Reaches into the private _εl_cache to assert the memoization
         # contract: calling ε_l with identical arguments must not grow the
