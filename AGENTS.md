@@ -53,6 +53,16 @@ For rational potentials, `_compute_ω` is dispatched to an exact method that use
 
 ## Conventions
 
+### GitHub issues
+
+* Check open and closed issues for duplicates before filing; link related issues.
+* Keep each issue focused on one independently actionable outcome. Track broader design proposals separately from fixes.
+* Use concise, conventional titles such as `fix: make solver buffers safe to reuse` or `perf: skip coefficients that vanish by symmetry`.
+* Describe the concrete problem and its impact, then include a minimal runnable reproduction with actual and expected results. Record the affected commit, Julia version, and relevant numeric types and inputs.
+* For performance findings, include measured timings, equivalent workloads, hardware, warm-up, and sampling method. Identify prototype results and indicative measurements as such, and include enough code to reproduce them.
+* Define a clear, verifiable expected outcome. Separate confirmed behavior from proposed solutions and unresolved design choices.
+* Link to relevant source using commit permalinks so the evidence remains readable after the code changes.
+
 ### Pull requests and releases
 
 * Start each feature or fix on its own branch from the latest `main`.
