@@ -51,7 +51,7 @@ The output type is always inferred from `eltype(pot.vcoeffs)`. Three modes are s
 
 Integer coefficients are promoted with `float(T)` (`Int` → `Float64`, `BigInt` → `BigFloat`); the normalization rule lives in `_coeff_type`. Coefficients and ω must be finite. The constructor always copies `vcoeffs`, so the potential owns its coefficients; treat `pot.vcoeffs` as read-only.
 
-For rational potentials, `_compute_ω` is dispatched to an exact method that uses `isqrt` and validates that $2 \cdot \text{vcoeffs}[1]$ is a perfect square. Float64 and BigFloat `Potential` objects have fully independent caches; no manual flushing is needed.
+For rational potentials, `_compute_ω` is dispatched to an exact method that uses `isqrt` and validates that $2 \cdot \text{vcoeffs}[1]$ is a perfect square. Float64 and BigFloat `Potential` objects have fully independent caches; no manual flushing is needed. A `BigFloat` `Potential` is bound to the `(precision, rounding)` active at construction; `A_kl`, `ε_l` and `fill_Akl!` throw an `ArgumentError` under any other context (`_check_context`).
 
 ## Conventions
 

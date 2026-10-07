@@ -42,8 +42,14 @@ not affect the potential. Treat `pot.vcoeffs` as read-only: caches are keyed
 on these coefficients, and in-place changes would silently invalidate every
 cached value. Construct a new `Potential` for a different polynomial.
 
-Fields prefixed with an underscore (`_Akl_cache`, `_εl_cache`, `_cache_lock`)
-are internal implementation details. They are not part of the public API and
+A `BigFloat` potential is bound to the precision and rounding mode active when
+it was constructed: `ω`, cached values and new computations all use that
+context. Calling `A_kl`, `ε_l` or `fill_Akl!` under a different
+`precision(BigFloat)` or `rounding(BigFloat)` throws an `ArgumentError`. To get
+more digits, construct a new `Potential` inside `setprecision(n) do … end`.
+
+Fields prefixed with an underscore (`_Akl_cache`, `_εl_cache`, `_cache_lock`,
+`_context`) are internal implementation details. They are not part of the public API and
 may change without notice.
 
 Cache access is guarded by a `ReentrantLock`, so a single `Potential` may be
@@ -63,6 +69,7 @@ struct Potential{T}
     _Akl_cache::Dict{Tuple{Int,Int,Int}, T}
     _εl_cache::Dict{Tuple{Int,Int}, T}
     _cache_lock::ReentrantLock
+    _context::Union{Nothing, Tuple{Int, RoundingMode}}
 end
 
 function Potential(vcoeffs::AbstractVector{T}) where T
@@ -95,6 +102,7 @@ function Potential(vcoeffs::AbstractVector{T}) where T
         Dict{Tuple{Int,Int,Int}, S}(),
         Dict{Tuple{Int,Int}, S}(),
         ReentrantLock(),
+        _numeric_context(S),
     )
 end
 
@@ -124,7 +132,8 @@ end
 
 Empty the memoization caches inside `pot` and return `pot`. Useful when
 sweeping over many `(ν, l)` values and you want to bound resident memory
-between batches.
+between batches. Clearing does not rebind a `BigFloat` potential to the
+current precision; construct a new `Potential` for that.
 """
 function clear_cache!(pot::Potential)
     lock(pot._cache_lock) do
@@ -161,6 +170,22 @@ function _compute_ω(v::Rational{T}) where T
     return Rational{T}(sn, sd)
 end
 _compute_ω(v) = sqrt(2 * v)
+
+# Numeric context a Potential is bound to: BigFloat results depend on the
+# global precision and rounding mode; other supported types have none.
+_numeric_context(::Type) = nothing
+_numeric_context(::Type{BigFloat}) = (precision(BigFloat), rounding(BigFloat))
+
+# Throw if `pot` is used under a different numeric context than it was
+# constructed in, so cached values and ω never mix precisions.
+function _check_context(pot::Potential{T}) where T
+    ctx = _numeric_context(T)
+    ctx == pot._context && return nothing
+    throw(ArgumentError(
+        "Potential{$T} was constructed with (precision, rounding) = " *
+        "$(pot._context) but is used with $ctx. Construct a new Potential " *
+        "under the target precision, ideally from exact inputs."))
+end
 
 # Shared update kernels used by both the recursive (A_kl/ε_l) and iterative
 # (fill_Akl!) paths. They take accessor callables so the same formula can read
@@ -213,6 +238,7 @@ Boundary conditions:
 - Returns `one` for k == ν, l == 0 (normalisation)
 """
 function A_kl(pot::Potential{T}, ν::Int, k::Int, l::Int) where T
+    _check_context(pot)
     # Cheap boundary cases — not worth caching
     if k < 0 || l < 0 return zero(T) end
     if k > ν && iszero(l) return zero(T) end
@@ -267,6 +293,7 @@ pot = Potential([1//2, 0//1, 0//1, 0//1, 1//1, 0//1, 1//1])
 See the "Energy corrections" section of the README for worked examples.
 """
 function ε_l(pot::Potential{T}, ν::Int, l::Int) where T
+    _check_context(pot)
     # Cheap boundary cases — not worth caching
     if isodd(l) return zero(T) end
     ω = pot.ω
@@ -335,6 +362,7 @@ Array indexing is 1-based: `Akl[k+1, l+1]` holds the coefficient for index k
 at order l, and `ε[l+1]` holds the energy correction at order l.
 """
 function fill_Akl!(Akl, ε, pot::Potential, ν::Int, maxorder::Int)
+    _check_context(pot)
     vcoeffs = pot.vcoeffs
     ω = pot.ω
     T = eltype(vcoeffs)
@@ -436,9 +464,9 @@ though evaluating them at integer ν still reproduces ε_l. For
   by comparing with a run at higher precision.
 - Use `Float64` only at low orders.
 
-A `Potential` caches ε_l at the precision active when each value was first
-computed. After changing the precision, build a new `Potential` inside the
-`setprecision` block (or call [`clear_cache!`](@ref)).
+A `BigFloat` potential is bound to its construction precision and rounding
+mode. After changing either, build a new `Potential` inside the target
+context. Calling [`clear_cache!`](@ref) does not change this binding.
 
 # Example
 ```julia
