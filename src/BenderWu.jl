@@ -262,21 +262,34 @@ function ε_l(pot::Potential{T}, ν::Int, l::Int) where T
     end
 end
 
+# Minimum buffer size `(rows, cols)` for the iterative solver at quantum number
+# `ν` up to order `l`: `Akl` needs at least `rows × cols` and `ε` at least `cols`
+# entries. `max_k` is nondecreasing in `l` once floored at ν, so the size at the
+# highest order covers every lower one.
+function _buffer_size(pot::Potential, ν::Int, l::Int)
+    ν < 0 && throw(ArgumentError("quantum number ν must be non-negative, got $ν"))
+    l < 0 && throw(ArgumentError("perturbation order must be non-negative, got $l"))
+    # max(ν, …): pure harmonic potentials have max_k = 0 for l > 0, but the
+    # boundary condition still writes Akl[ν+1, 1].
+    # +3: one for the 1-based offset, two for the A(k+2, l) read at k = K_l.
+    return max(ν, max_k(pot, ν, l)) + 3, l + 1
+end
+
 """
     initialize_Akl_eps(pot, ν, l)
 
 Allocate and return zero-initialised arrays `(Akl, ε)` sized for the iterative
 computation up to perturbation order `l` for quantum number `ν`.
 
-`Akl` has dimensions `(K_l^(ν) + 3) × (l + 1)` and `ε` has length `l + 1`.
-Element type matches `eltype(pot.vcoeffs)`. Pass these arrays to `fill_Akl!`.
+`Akl` has dimensions `(max(ν, K_l^(ν)) + 3) × (l + 1)` and `ε` has length
+`l + 1`. Element type matches `eltype(pot.vcoeffs)`. Pass these arrays to
+`fill_Akl!`; any arrays at least this large work too. Throws `ArgumentError`
+for negative `ν` or `l`.
 """
 function initialize_Akl_eps(pot::Potential, ν::Int, l::Int)
-    # max(ν, …): pure harmonic potentials have max_k = 0 for l > 0, but the
-    # boundary condition still writes Akl[ν+1, 1].
-    kmax = max(ν, max_k(pot, ν, l))
+    rows, cols = _buffer_size(pot, ν, l)
     T = eltype(pot.vcoeffs)
-    return zeros(T, kmax+3, l+1), zeros(T, l+1)
+    return zeros(T, rows, cols), zeros(T, cols)
 end
 
 """
@@ -292,7 +305,13 @@ functions. Each order `l` is computed in three steps:
 2. Compute `ε[l]` from the boundary condition at k = ν
 3. Compute `Akl[k, l]` for k < ν (descending from ν−1)
 
-Use `initialize_Akl_eps` to allocate arrays of the correct size.
+Use `initialize_Akl_eps` to allocate arrays of the correct size. Buffers may
+be reused across levels, potentials and orders as long as they are at least as
+large as what `initialize_Akl_eps(pot, ν, maxorder)` allocates: both arrays are
+zeroed before filling, so the result matches a fresh allocation exactly.
+
+Throws `ArgumentError` for negative `ν` or `maxorder` and `DimensionMismatch`
+for undersized buffers, before writing anything.
 
 # Note
 Array indexing is 1-based: `Akl[k+1, l+1]` holds the coefficient for index k
@@ -302,6 +321,15 @@ function fill_Akl!(Akl, ε, pot::Potential, ν::Int, maxorder::Int)
     vcoeffs = pot.vcoeffs
     ω = pot.ω
     T = eltype(vcoeffs)
+    rows, cols = _buffer_size(pot, ν, maxorder)
+    (size(Akl, 1) < rows || size(Akl, 2) < cols) &&
+        throw(DimensionMismatch("Akl must be at least $rows×$cols, got $(join(size(Akl), '×'))"))
+    length(ε) < cols &&
+        throw(DimensionMismatch("ε must have length at least $cols, got $(length(ε))"))
+    # The recurrence reads entries it never writes (padding rows, the k = ν row
+    # for l > 0, entries beyond each order's support) and expects them zero.
+    fill!(Akl, zero(T))
+    fill!(ε, zero(T))
     Akl[ν+1, 1] = one(ω)
     ε[1] = ω * (ν + one(T)/2)
     # Accessors give _akl_update / _eps_update read-only views of Akl/ε that

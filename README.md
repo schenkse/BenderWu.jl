@@ -176,6 +176,8 @@ fill_Akl!(Akl, ε, pot, ν, maxorder)
 # ε[l+1] now equals ε_l(pot, ν, l) for every l in 0:maxorder
 ```
 
+The buffers can be reused for other levels, potentials or orders, as long as they are at least as large as what `initialize_Akl_eps` would allocate; `fill_Akl!` zeroes them before filling.
+
 **Which API to use?** Reach for `fill_Akl!` whenever you need many orders at a fixed ν — it is type-stable and substantially faster than repeated `ε_l` calls. Use the recursive `ε_l` / `A_kl` for ad-hoc single-value queries or when you do not know up front how many orders you will need; results are memoized inside `pot` and reused across calls. For very high orders (`l` in the hundreds, plausible in BigFloat asymptotic studies) prefer `fill_Akl!` — the recursive path can exhaust Julia's default stack at that depth.
 
 ### Wave-function coefficients

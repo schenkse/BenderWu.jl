@@ -374,6 +374,50 @@ using Aqua
         end
     end
 
+    @testset "fill_Akl! buffers are reusable" begin
+        # Issue #4: reusing buffers from ν = 2 for ν = 0 left stale entries
+        # that the recurrence read as zeros.
+        Akl, ε_arr = initialize_Akl_eps(pot, 2, 6)
+        fill_Akl!(Akl, ε_arr, pot, 2, 6)
+        fill_Akl!(Akl, ε_arr, pot, 0, 6)
+        Akl0, ε0 = initialize_Akl_eps(pot, 2, 6)
+        fill_Akl!(Akl0, ε0, pot, 0, 6)
+        @test ε_arr == ε0
+        @test Akl == Akl0
+        @test ε_arr[3] == 0.75
+
+        # Larger buffer reused across a change of potential and order: the
+        # computed region matches a fresh run, everything else is zero.
+        pot_big = Potential([0.5, 1.0, 1.0])
+        Akl, ε_arr = initialize_Akl_eps(pot_big, 3, 6)
+        fill_Akl!(Akl, ε_arr, pot_big, 3, 6)
+        fill_Akl!(Akl, ε_arr, pot, 1, 4)
+        Akl1, ε1 = initialize_Akl_eps(pot, 1, 4)
+        fill_Akl!(Akl1, ε1, pot, 1, 4)
+        rows, cols = size(Akl1)
+        @test Akl[1:rows, 1:cols] == Akl1
+        @test ε_arr[1:cols] == ε1
+        @test all(iszero, Akl[rows+1:end, :])
+        @test all(iszero, Akl[:, cols+1:end])
+        @test all(iszero, ε_arr[cols+1:end])
+
+        # Invalid inputs throw before any write.
+        Akl, ε_arr = initialize_Akl_eps(pot, 1, 4)
+        Akl .= 7.0
+        ε_arr .= 7.0
+        Akl_copy, ε_copy = copy(Akl), copy(ε_arr)
+        rows, cols = size(Akl)
+        @test_throws DimensionMismatch fill_Akl!(Akl[1:rows-1, :], ε_arr, pot, 1, 4)
+        @test_throws DimensionMismatch fill_Akl!(Akl[:, 1:cols-1], ε_arr, pot, 1, 4)
+        @test_throws DimensionMismatch fill_Akl!(Akl, ε_arr[1:cols-1], pot, 1, 4)
+        @test_throws DimensionMismatch fill_Akl!(Akl, ε_arr, pot, 2, 4)
+        @test_throws ArgumentError fill_Akl!(Akl, ε_arr, pot, -1, 4)
+        @test_throws ArgumentError fill_Akl!(Akl, ε_arr, pot, 1, -2)
+        @test Akl == Akl_copy
+        @test ε_arr == ε_copy
+        @test_throws ArgumentError initialize_Akl_eps(pot, -1, 4)
+    end
+
     @testset "Iterative path with Rational coefficients (exact)" begin
         # All prior iterative-path tests use Float64. Cover the iterative path
         # under exact Rational{BigInt} arithmetic: results must be type-stable
