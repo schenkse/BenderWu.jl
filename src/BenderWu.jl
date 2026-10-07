@@ -370,12 +370,30 @@ The energy eigenvalue at perturbation order `order` is a polynomial in the
 quantum number ν. This function evaluates ε_l^(ν) at `order/2 + 2` integer
 values of ν, computes divided differences (the Newton form), and converts to
 the monomial basis. Compared to a Vandermonde solve this is O(n²) instead of
-O(n³), exact in rational arithmetic, and numerically stable for `Float64` at
-high orders.
+O(n³), and exact in rational arithmetic.
 
 Returns a zero vector for odd `order` (all odd-order corrections vanish).
-The element type matches `eltype(pot.vcoeffs)`, so pass a `BigFloat`-based
-`Potential` for arbitrary-precision results.
+The element type matches `eltype(pot.vcoeffs)`; see Accuracy below before
+using floating-point potentials at high order.
+
+# Accuracy
+Recovering monomial coefficients from samples at ν = 0…n−1 is
+ill-conditioned: low coefficients barely affect the large-ν samples. In
+floating point the coefficients lose accuracy quickly with order, even
+though evaluating them at integer ν still reproduces ε_l. For
+`V = x²/2 + x⁴` in `Float64`, the worst coefficient relative error is about
+1e-12 at order 10, 5e-6 at order 20, and above 1 at order 30.
+
+- `Rational` potentials are exact; use them when you need the coefficients.
+- With `BigFloat`, set the working precision deliberately (`setprecision`).
+  The bits needed grow with order and depend on the potential: at order 50,
+  roughly 160 for `x²/2 + x⁴` and 320 for `x²/2 + x³ + x⁴`. Check a result
+  by comparing with a run at higher precision.
+- Use `Float64` only at low orders.
+
+A `Potential` caches ε_l at the precision active when each value was first
+computed. After changing the precision, build a new `Potential` inside the
+`setprecision` block (or call [`clear_cache!`](@ref)).
 
 # Example
 ```julia
