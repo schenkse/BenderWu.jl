@@ -189,6 +189,11 @@ The matrix is indexed as `Akl[k+1, l+1]` (1-based offset), where `k` is the BW e
 using Pkg; Pkg.test()
 ```
 
+## Contributing
+
+Use one branch per feature or fix and open a pull request into `main`.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for CI checks and the release process.
+
 ## Benchmarks
 
 End-to-end timings against the reference Mathematica implementation `BenderWu.m` for both Float64 and exact-rational arithmetic are reported in [BENCHMARKS.md](BENCHMARKS.md).

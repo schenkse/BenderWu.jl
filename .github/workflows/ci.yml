@@ -1,11 +1,14 @@
-name: Test and Release
+name: ci
 
 on:
   push:
-    branches: [main]
-    tags: ['v*.*.*']
+    branches: ['**']
   pull_request:
     branches: [main]
+  workflow_call:
+
+permissions:
+  contents: read
 
 jobs:
   test:
@@ -22,28 +25,26 @@ jobs:
           - version: 'nightly'
             os: ubuntu-latest
             experimental: true
+    env:
+      JULIA_NUM_THREADS: '2'
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - uses: julia-actions/setup-julia@v3
         with:
           version: ${{ matrix.version }}
       - uses: julia-actions/cache@v3
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
-  
-  release:
-    name: Create GitHub Release
+
+  gates:
+    name: gates
     needs: test
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: always()
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Release
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
-          generate_release_notes: true
+      - name: Require the supported Julia tests to pass
+        env:
+          TEST_RESULT: ${{ needs.test.result }}
+        run: test "$TEST_RESULT" = success
