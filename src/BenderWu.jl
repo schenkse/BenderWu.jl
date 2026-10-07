@@ -161,6 +161,16 @@ function max_k(pot::Potential, ν::Int, l::Int)
     l < L ? (iszero(l) ? ν : 0) : ν + (L + 2) * (l ÷ L) + l % L
 end
 
+# gcd of the active perturbation indices n (vcoeffs[n+1] ≠ 0, n ≥ 1). H(g) depends
+# on g only through g^d, so BW orders not divisible by d vanish. 0 if harmonic.
+function _order_step(vcoeffs)
+    d = 0
+    for n in 1:length(vcoeffs)-1
+        iszero(vcoeffs[n+1]) || (d = gcd(d, n))
+    end
+    return d
+end
+
 function _compute_ω(v::Rational{T}) where T
     two_v = 2 * v
     n, d = numerator(two_v), denominator(two_v)
@@ -357,6 +367,13 @@ zeroed before filling, so the result matches a fresh allocation exactly.
 Throws `ArgumentError` for negative `ν` or `maxorder` and `DimensionMismatch`
 for undersized buffers, before writing anything.
 
+Cells that vanish identically are skipped and left zero:
+
+- parity: A_{k,l} = 0 unless k + l + ν is even, and ε_l = 0 for odd l;
+- order step: with d the gcd of the active perturbation indices n
+  (`vcoeffs[n+1] ≠ 0`), orders l not divisible by d vanish. A pure harmonic
+  potential only has l = 0.
+
 # Note
 Array indexing is 1-based: `Akl[k+1, l+1]` holds the coefficient for index k
 at order l, and `ε[l+1]` holds the energy correction at order l.
@@ -382,15 +399,18 @@ function fill_Akl!(Akl, ε, pot::Potential, ν::Int, maxorder::Int)
     # Array indexing is 1-based: A(k, l) lives at Akl[k+1, l+1], ε(n) at ε[n+1].
     getA = (k, l) -> k < 0 ? zero(T) : Akl[k+1, l+1]
     getε = n -> ε[n+1]
-    for l = 0:maxorder
+    # Only orders divisible by the order step d contribute; harmonic (d = 0) has l = 0 only.
+    d = _order_step(vcoeffs)
+    for l = 0:max(d, 1):(iszero(d) ? 0 : maxorder)
         kmax = max_k(pot, ν, l)
+        # Parity: only k with k + l + ν even are nonzero.
         if l > 0
-            for k = kmax:-1:ν+1
+            for k = kmax - isodd(kmax + l + ν):-2:ν+1
                 Akl[k+1, l+1] = _akl_update(getA, getε, vcoeffs, ω, ν, k, l)
             end
-            ε[l+1] = _eps_update(getA, vcoeffs, ν, l)
+            iseven(l) && (ε[l+1] = _eps_update(getA, vcoeffs, ν, l))
         end
-        for k = ν-1:-1:0
+        for k = ν - 1 - iseven(l):-2:0
             Akl[k+1, l+1] = _akl_update(getA, getε, vcoeffs, ω, ν, k, l)
         end
     end
