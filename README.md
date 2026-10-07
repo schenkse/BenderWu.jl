@@ -2,7 +2,7 @@
 
 Julia implementation of the **Bender-Wu method** for computing perturbative energy corrections to eigenvalues of 1D quantum systems with polynomial potentials.
 
-The Hamiltonian is H = p²/2 + V(x), where V(x) = Σ vcoeffs[n] · xⁿ⁺¹. The energy eigenvalue E_ν is expanded order by order in a coupling constant; this package computes those perturbative corrections using the Bender-Wu recursive relations.
+The Hamiltonian is H = -½∂ₓ² + V(x), where V(x) = Σ vcoeffs[n] · xⁿ⁺¹. The package expands the energy eigenvalue E_ν in a coupling `g` using the Bender-Wu recursive relations. See [Energy corrections](#energy-corrections-ε_lpot-ν-l) for how `g` enters H.
 
 [![Julia ≥ 1.10](https://img.shields.io/badge/Julia-≥1.10-9558B2?logo=julia)](https://julialang.org)
 [![No dependencies](https://img.shields.io/badge/dependencies-none-brightgreen)](Project.toml)
@@ -64,21 +64,27 @@ Create one `Potential` per potential and reuse it — results are memoized insid
 
 ### Energy corrections ε_l(pot, ν, l)
 
-`ε_l(pot, ν, l)` returns the perturbative energy correction at order `l` for quantum number `ν`.
+The package expands in the coupling `g` of the scaled Hamiltonian
+
+H(g) = -½∂ₓ² + V(gx)/g²,
+
+where V is the polynomial from `vcoeffs`. A monomial `c·x^p` in V enters H(g) as `c·g^(p-2)·x^p`, so the harmonic term carries no `g`. `ε_l(pot, ν, l)` returns the coefficient of `g^l` in the energy E_ν(g) for quantum number `ν`.
 
 ```julia
 ε_l(pot, 0, 0)   # → 0.5    (ground state, unperturbed: ω·(0 + 1/2))
 ε_l(pot, 1, 0)   # → 1.5    (ν=1, unperturbed: ω·(1 + 1/2))
-ε_l(pot, 0, 2)   # → 0.75   (first non-trivial correction for ν=0)
+ε_l(pot, 0, 2)   # → 0.75   (first-order quartic correction ⟨0|x⁴|0⟩ = 3/4)
 ε_l(pot, 1, 2)   # → 3.75
 ε_l(pot, 2, 2)   # → 9.75
 ```
 
-Odd-order corrections vanish identically and are returned as exact zero.
+Odd orders vanish for every potential and are returned as exact zero. Flipping g → −g together with x → −x leaves H(g) unchanged, so E_ν(g) is even in `g`.
 
 #### `l` is the BW recursion index, not the physical perturbation order
 
-The argument `l` is the Bender–Wu recursion index. Let `L` be the index of the first non-zero entry in `vcoeffs[2:end]` (so `L = 2` for a quartic, `L = 4` for a sextic, `L = 6` for an octic). The physical perturbation order `k` is related to `l` by `l = k·L`, and `ε_l(pot, ν, l) = 0` whenever `l mod L ≠ 0`. For a quartic these coincide, but for higher-degree leading perturbations they do not.
+Which orders survive depends on the monomials in V. Call `p − 2` the index of an anharmonic monomial `x^p`.
+
+**Single anharmonic monomial.** If V has one term `c·x^p` besides x², set `L = p − 2`. The physical coupling is `λ = g^L`, and the k-th order in λ sits at `l = k·L`. That gives `l = 2k` for a quartic, `l = 4k` for a sextic and `l = 6k` for an octic. `ε_l(pot, ν, l) = 0` unless `L` divides `l`.
 
 **Worked sextic example** (V = x²/2 + x⁶, so `L = 4`):
 
@@ -86,6 +92,17 @@ The argument `l` is the Bender–Wu recursion index. Let `L` be the index of the
 pot6 = Potential([0.5, 0.0, 0.0, 0.0, 1.0])
 ε_l(pot6, 0, 2)   # → 0.0     (no physical correction here — l = 2 is below L)
 ε_l(pot6, 0, 4)   # ≠ 0       (first physical correction)
+```
+
+**Mixed potentials.** With several anharmonic monomials, each one contributes at its own power of `g`. A nonzero `ε_l` needs `l` to be a sum of active indices `p − 2`, repeats allowed. In particular, the gcd of the active indices must divide `l`. That condition is necessary but not sufficient, and the first nonzero index alone does not decide which orders vanish.
+
+For V = x²/2 + x⁶ + x⁸ the indices are 4 and 6. `l = 6` is not a multiple of 4, yet the x⁸ term contributes there at first order. And gcd(4, 6) = 2 divides `l = 2`, but `ε_2` vanishes because 2 is not a sum of 4s and 6s.
+
+```julia
+potm = Potential([1//2, 0//1, 0//1, 0//1, 1//1, 0//1, 1//1])
+ε_l(potm, 0, 2)   # → 0//1
+ε_l(potm, 0, 4)   # → 15//8    (⟨0|x⁶|0⟩, first order in x⁶)
+ε_l(potm, 0, 6)   # → 105//16  (⟨0|x⁸|0⟩, first order in x⁸)
 ```
 
 ### Energy polynomial in ν
@@ -165,7 +182,7 @@ Akl = eigenstate_coeffs(pot, 0, 4)   # ground state coefficients up to BW order 
 Akl[1, 1] == 1.0                      # k = ν normalisation at order 0
 ```
 
-The matrix is indexed as `Akl[k+1, l+1]` (1-based offset), where `k` is the BW expansion index and `l` is the BW recursion order. The ν-th perturbed eigenstate is ψ_ν(x) = e^{-ω x² / 2}·∑_l λ^l ∑_k Akl[k+1, l+1] · x^k, with λ the coupling and ω = √(2·vcoeffs[1]).
+The matrix is indexed as `Akl[k+1, l+1]` (1-based offset), where `k` is the BW expansion index and `l` is the BW recursion order. The ν-th perturbed eigenstate is ψ_ν(x) = e^{-ω x² / 2}·∑_l g^l ∑_k Akl[k+1, l+1] · x^k, with g the coupling of H(g) and ω = √(2·vcoeffs[1]).
 
 ## API reference
 
