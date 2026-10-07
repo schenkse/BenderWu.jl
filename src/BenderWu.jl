@@ -27,11 +27,18 @@ Powers must be ≥ 2; duplicate powers are summed.
 Carries its own memoization caches, which are GC-managed — create one instance
 per potential and reuse it across calls.
 
-`Rational{Int64}` (and any `Rational{<:Base.BitInteger}`) coefficients are
-automatically promoted to `Rational{BigInt}` to prevent integer overflow at
-higher perturbation orders.
+Coefficients must be real and finite, and ω = √(2·vcoeffs[1]) must be finite.
+The element type is normalized on construction:
 
-The `vcoeffs` field must not be mutated after construction: caches are keyed
+- `Integer` coefficients are promoted to `float(T)` (`Int` → `Float64`,
+  `BigInt` → `BigFloat`).
+- `Rational{Int64}` (and any `Rational{<:Base.BitInteger}`) coefficients are
+  promoted to `Rational{BigInt}` to prevent integer overflow at higher
+  perturbation orders.
+- Other real types (`Float64`, `BigFloat`, `Rational{BigInt}`, …) are kept.
+
+The constructor copies `vcoeffs`, so later changes to the caller's vector do
+not affect the potential. Treat `pot.vcoeffs` as read-only: caches are keyed
 on these coefficients, and in-place changes would silently invalidate every
 cached value. Construct a new `Potential` for a different polynomial.
 
@@ -66,36 +73,46 @@ function Potential(vcoeffs::AbstractVector{T}) where T
         "Potential supports real-valued coefficient types only " *
         "(Float64, BigFloat, Rational); got eltype = $T"))
     isempty(vcoeffs) && throw(ArgumentError("vcoeffs must be non-empty"))
+    # Always copy, so the potential owns its coefficients and caller-side
+    # mutation cannot desynchronize them from the caches and ω.
+    S = _coeff_type(T)
+    vc = collect(S, vcoeffs)
+    # Catches Inf, NaN, and zero-denominator rationals such as 1//0.
+    all(isfinite, vc) || throw(ArgumentError(
+        "vcoeffs must be finite; got $vc"))
     # Bender-Wu requires a positive harmonic baseline ω = √(2·vcoeffs[1]).
     # vcoeffs[1] ≤ 0 either makes ω complex (negative) or zero (which would
     # cause division-by-zero in the recursion below).
-    vcoeffs[1] > zero(T) || throw(ArgumentError(
-        "vcoeffs[1] (coefficient of x²) must be strictly positive; got $(vcoeffs[1])"))
-    # Reuse the input directly when it is already a concrete Vector{T}; only
-    # copy/convert for AbstractVector inputs (views, ranges, mismatched eltype).
-    # The "must not be mutated after construction" contract in the docstring
-    # covers cache integrity on the caller side.
-    vc = vcoeffs isa Vector{T} ? vcoeffs : collect(T, vcoeffs)
+    vc[1] > zero(S) || throw(ArgumentError(
+        "vcoeffs[1] (coefficient of x²) must be strictly positive; got $(vc[1])"))
+    ω = _compute_ω(vc[1])
+    isfinite(ω) || throw(ArgumentError(
+        "ω = √(2·vcoeffs[1]) is not finite: 2·vcoeffs[1] overflows $S " *
+        "for vcoeffs[1] = $(vc[1])"))
     Potential(
         vc,
-        _compute_ω(first(vcoeffs)),
-        Dict{Tuple{Int,Int,Int}, T}(),
-        Dict{Tuple{Int,Int}, T}(),
+        ω,
+        Dict{Tuple{Int,Int,Int}, S}(),
+        Dict{Tuple{Int,Int}, S}(),
         ReentrantLock(),
     )
 end
 
-# Promote fixed-width rational coefficients to Rational{BigInt} to prevent
-# integer overflow at higher perturbation orders.
-Potential(vcoeffs::AbstractVector{Rational{T}}) where {T <: Base.BitInteger} =
-    Potential(Rational{BigInt}.(vcoeffs))
+# Element type a Potential stores for input eltype T. Integers become floats
+# (ω is generally irrational); fixed-width rationals become Rational{BigInt}
+# to prevent integer overflow at higher perturbation orders.
+_coeff_type(::Type{T}) where {T} = T
+_coeff_type(::Type{T}) where {T<:Integer} = float(T)
+_coeff_type(::Type{Rational{T}}) where {T<:Base.BitInteger} = Rational{BigInt}
 
 function Potential(pairs::AbstractVector{<:Pair{<:Integer,T}}) where T
     isempty(pairs) && throw(ArgumentError("pairs must be non-empty"))
     any(first(p) < 2 for p in pairs) &&
         throw(ArgumentError("powers must be ≥ 2 (no x⁰ or x¹ terms allowed)"))
     maxp = maximum(first, pairs)
-    vc = zeros(T, maxp - 1)
+    # Accumulate in the normalized type so duplicate powers can't overflow
+    # (e.g. Rational{Int} sums happen in Rational{BigInt}).
+    vc = zeros(_coeff_type(T), maxp - 1)
     for (p, c) in pairs
         vc[p - 1] += c
     end
