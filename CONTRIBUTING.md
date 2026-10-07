@@ -23,7 +23,7 @@ julia --project=. --threads=2 -e 'using Pkg; Pkg.test()'
 ```
 
 CI runs on branch pushes and pull requests into `main`.
-It runs the package tests, including Aqua checks, on Julia 1.10, the latest stable version, and LTS across Linux, macOS, and Windows.
+It runs the package tests, including Aqua checks, on the latest stable Julia version and LTS across Linux, macOS, and Windows.
 Julia nightly runs on Linux and is allowed to fail.
 The `gates` check passes when all supported Julia jobs pass.
 GitHub requires a pull request, an up-to-date branch, and passing `gates` before merging into `main`, including for admins.
