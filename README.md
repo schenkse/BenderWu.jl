@@ -118,11 +118,14 @@ evaluate_epoly(1, epoly)   # → 3.75   (matches ε_l(pot, 1, 2))
 evaluate_epoly(3, epoly)   # → 21.75
 ```
 
-**Compute all orders up to 50:**
+**Compute all orders up to 50** (exactly, with a `Rational` potential):
 
 ```julia
-ε_polys = [find_epoly(n, pot) for n = 0:50]
+pot_r = Potential([1//2, 0//1, 1//1])
+ε_polys = [find_epoly(n, pot_r) for n = 0:50]
 ```
+
+**Accuracy of polynomial coefficients.** Recovering coefficients from samples at integer ν is ill-conditioned, so floating-point coefficients lose accuracy fast with order. For the quartic in `Float64`, the worst coefficient error is about 1e-12 at order 10, 5e-6 at order 20, and above 100% at order 30, even though evaluating at integer ν still reproduces `ε_l`. Use `Float64` only at low orders. `Rational` potentials are exact. With `BigFloat`, set the precision explicitly with `setprecision` and build a fresh `Potential` inside that block, since a `Potential` caches values at the precision they were computed with. The bits needed grow with order and depend on the potential: at order 50, roughly 160 for `x²/2 + x⁴` and 320 for `x²/2 + x³ + x⁴`.
 
 **Derivatives of ε(ν) evaluated at ν = 0** — entry `k` is the k-th derivative:
 
@@ -151,11 +154,13 @@ pot_r = Potential([1//2, 0//1, 1//1])
 find_epoly(4, pot_r)   # → [-21//8, -59//8, -51//8, -17//4]
 ```
 
-**Arbitrary precision** — pass `BigFloat` coefficients:
+**Arbitrary precision** — pass `BigFloat` coefficients. For `find_epoly` coefficients, choose the precision deliberately (see [Accuracy of polynomial coefficients](#energy-polynomial-in-ν)):
 
 ```julia
-pot_bf = Potential(BigFloat.([0.5, 0.0, 1.0]))
-ε_polys_bf = [find_epoly(n, pot_bf) for n = 0:50]
+ε_polys_bf = setprecision(BigFloat, 256) do
+    pot_bf = Potential(BigFloat.([0.5, 0.0, 1.0]))
+    [find_epoly(n, pot_bf) for n = 0:50]
+end
 ```
 
 Float64, BigFloat, and Rational potentials each carry independent caches; no manual flushing is needed.

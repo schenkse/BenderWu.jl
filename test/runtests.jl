@@ -187,16 +187,29 @@ using Aqua
         @test ε_l(Potential([1//2, 0//1, 0//1, 0//1, 1//1, 0//1, 1//1]), 0, 6) == 105//16
     end
 
-    @testset "find_epoly agrees across BigFloat and Rational precision" begin
-        # Order-10 quartic energy polynomial must match to ~30 decimal digits
-        # whether computed in BigFloat or exact rational arithmetic.
-        pot_bf = Potential(BigFloat.([0.5, 0.0, 1.0]))
-        pot_r  = Potential([1//2, 0//1, 1//1])
-        e_bf   = find_epoly(10, pot_bf)
-        e_r    = find_epoly(10, pot_r)
-        @test length(e_bf) == length(e_r)
-        for (a, b) in zip(e_bf, e_r)
-            @test isapprox(a, BigFloat(b); rtol = BigFloat(10)^-30)
+    @testset "find_epoly coefficients agree with exact Rational results" begin
+        # Coefficient recovery is ill-conditioned, so round trips at integer ν
+        # do not test accuracy; compare every coefficient with the exact result.
+        # The mixed x³ + x⁴ case is the worse-conditioned one.
+        for (v, l) in [([1//2, 0//1, 1//1], 10),
+                       ([1//2, 0//1, 1//1], 30),
+                       ([1//2, 1//1, 1//1], 20)]
+            e_r  = find_epoly(l, Potential(v))
+            e_bf = setprecision(BigFloat, 256) do
+                find_epoly(l, Potential(BigFloat.(v)))
+            end
+            @test eltype(e_bf) == BigFloat
+            @test length(e_bf) == length(e_r)
+            for (a, b) in zip(e_bf, e_r)
+                @test isapprox(a, BigFloat(b); rtol = BigFloat(10)^-30)
+            end
+        end
+
+        # Float64 is adequate at low order (measured worst error ≈ 1e-12).
+        e_f = find_epoly(10, Potential([0.5, 0.0, 1.0]))
+        e_r = find_epoly(10, Potential([1//2, 0//1, 1//1]))
+        for (a, b) in zip(e_f, e_r)
+            @test isapprox(a, Float64(b); rtol = 1e-10)
         end
     end
 
@@ -288,15 +301,6 @@ using Aqua
         end
         for trial in 1:32, ν in 0:3, l in 0:5
             @test results[ν+1, l+1, trial] == expected[ν+1, l+1]
-        end
-    end
-
-    @testset "find_epoly at higher order (BigFloat)" begin
-        pot_bf = Potential(BigFloat.([0.5, 0.0, 1.0]))
-        epoly = find_epoly(20, pot_bf)
-        @test eltype(epoly) == BigFloat
-        for ν in 0:3
-            @test evaluate_epoly(ν, epoly) ≈ ε_l(pot_bf, ν, 20)
         end
     end
 
