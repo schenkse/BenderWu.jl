@@ -233,5 +233,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for CI checks and the release process.
 
 ## Benchmarks
 
-End-to-end timings against the reference Mathematica implementation `BenderWu.m` for both Float64 and exact-rational arithmetic are reported in [BENCHMARKS.md](BENCHMARKS.md).
+End-to-end timings against the reference Mathematica implementation `BenderWu.m` in exact-rational arithmetic are reported in [BENCHMARKS.md](BENCHMARKS.md).
 See [benchmark/README.md](benchmark/README.md) for how to reproduce them.

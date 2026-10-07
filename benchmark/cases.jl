@@ -9,23 +9,31 @@
 # That comparison would mostly measure symbolic-evaluator overhead, not
 # algorithmic efficiency, so we omit it.
 
+#
+# N is the highest power of g in the expansion E = Σ ε_l g^l. Julia computes
+# l = 0:N, while Mathematica's BenderWu[V, x, ν, n] counts powers of g², so it
+# is called with n = N/2. Every N must therefore be even.
+
 # A potential is described by its Julia coefficient vector (vcoeffs[n] is the
-# coefficient of x^(n+1)) and a Mathematica string representation of V(x).
+# coefficient of x^(n+1)), a Mathematica string representation of V(x), and a
+# display form for the report. The order here is the order in BENCHMARKS.md.
 const POTENTIALS = [
-    (name = "quartic",      vcoeffs = [1//2, 0//1, 1//1],                              mma = "x^2/2 + x^4"),
-    (name = "sextic",       vcoeffs = [1//2, 0//1, 0//1, 0//1, 1//1],                  mma = "x^2/2 + x^6"),
-    (name = "octic",        vcoeffs = [1//2, 0//1, 0//1, 0//1, 0//1, 0//1, 1//1],      mma = "x^2/2 + x^8"),
-    (name = "mixed_parity", vcoeffs = [1//2, 1//1, 1//1],                              mma = "x^2/2 + x^3 + x^4"),
+    (name = "quartic",      vcoeffs = [1//2, 0//1, 1//1],                         mma = "x^2/2 + x^4",       display = "x²/2 + x⁴"),
+    (name = "mixed_parity", vcoeffs = [1//2, 1//1, 1//1],                         mma = "x^2/2 + x^3 + x^4", display = "x²/2 + x³ + x⁴"),
+    (name = "sextic",       vcoeffs = [1//2, 0//1, 0//1, 0//1, 1//1],             mma = "x^2/2 + x^6",       display = "x²/2 + x⁶"),
+    (name = "octic",        vcoeffs = [1//2, 0//1, 0//1, 0//1, 0//1, 0//1, 1//1], mma = "x^2/2 + x^8",       display = "x²/2 + x⁸"),
 ]
 
 const NUS = [0, 1, 5]
 
 # Rational/exact arithmetic: integer growth is super-exponential in N, so the
 # range stays modest.
-const ORDERS = [5, 10, 15, 20, 25]
+const ORDERS = [10, 20, 30, 40, 50]
 
 const QUICK_NUS = [0]
-const QUICK_ORDERS = [5]
+const QUICK_ORDERS = [10]
+
+@assert all(iseven, ORDERS) && all(iseven, QUICK_ORDERS)
 
 """
     cases(; quick=false)
