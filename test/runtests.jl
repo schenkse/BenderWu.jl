@@ -87,14 +87,28 @@ using Aqua
         # Non-real eltypes are rejected upfront with a clear ArgumentError
         # rather than a downstream MethodError on `>`.
         @test_throws ArgumentError Potential(ComplexF64[1.0 + 0im, 0.0, 1.0])
+        # Integer coefficients are promoted with float(T).
+        pot_i = Potential([1, 0, 1])
+        @test eltype(pot_i.vcoeffs) == Float64
+        @test pot_i.ω ≈ √2
+        @test eltype(Potential(big.([1, 0, 1])).vcoeffs) == BigFloat
+        # Nonfinite coefficients, and an ω that overflows, are rejected.
+        @test_throws ArgumentError Potential([Inf, 0.0, 1.0])
+        @test_throws ArgumentError Potential([0.5, NaN, 1.0])
+        @test_throws ArgumentError Potential([0.5, 0.0, Inf])
+        @test_throws ArgumentError Potential([1//2, 1//0, 1//1])
+        @test_throws ArgumentError Potential([1e308, 0.0, 1.0])
     end
 
-    @testset "Vector{T} input is reused, AbstractVector input is copied" begin
-        # Common case: passing a Vector{T} of the right eltype reuses the
-        # buffer (no defensive copy).
+    @testset "Potential owns its coefficients" begin
         src = [0.5, 0.0, 1.0]
-        @test Potential(src).vcoeffs === src
-        # AbstractVector inputs (views, ranges) still go through collect.
+        pot = Potential(src)
+        @test pot.vcoeffs !== src
+        src[1] = 2.0
+        src[3] = 5.0
+        @test ε_l(pot, 0, 2) == 0.75
+        @test pot.ω == 1.0
+        # AbstractVector inputs (views, ranges) are collected into a Vector.
         v = @view src[1:end]
         pot_v = Potential(v)
         @test pot_v.vcoeffs !== src
@@ -314,6 +328,9 @@ using Aqua
         @test Potential([4 => 1.0, 2 => 0.5]).vcoeffs == [0.5, 0.0, 1.0]
         # Duplicate powers accumulate.
         @test Potential([2 => 0.25, 2 => 0.25, 4 => 1.0]).vcoeffs == [0.5, 0.0, 1.0]
+        # Fixed-width rationals are summed in Rational{BigInt}, so no overflow.
+        @test Potential([2 => 1//2, 4 => typemax(Int)//1, 4 => 1//1]).vcoeffs[3] ==
+              big(typemax(Int)) + 1
         # Validation errors.
         @test_throws ArgumentError Potential(Pair{Int,Float64}[])
         @test_throws ArgumentError Potential([1 => 1.0, 2 => 0.5])  # x¹ term

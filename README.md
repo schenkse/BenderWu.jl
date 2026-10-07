@@ -137,6 +137,8 @@ ds = epoly_taylor_derivatives(find_epoly(2, pot))   # → [1.5, 3.0]
 
 Three precision modes are supported; the output type matches the element type of `vcoeffs`.
 
+Integer coefficients are promoted to floating point (`Potential([1, 0, 1])` stores `Float64`, `BigInt` input stores `BigFloat`). All coefficients must be finite, and the constructor copies them, so later changes to your input vector do not affect the potential.
+
 **Float64** (default):
 
 ```julia
