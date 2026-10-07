@@ -169,9 +169,12 @@ using Aqua
 
     @testset "BW recursion index l=2 vanishes for sextic/octic" begin
         # l is the BW recursion index, not the physical perturbation order.
-        # For leading perturbation degree L, ε_l = 0 whenever l mod L ≠ 0.
+        # With a single anharmonic monomial x^p, L = p-2 and ε_l = 0 whenever
+        # l mod L ≠ 0.
         # Sextic: L=4 — l=2 vanishes, l=4 is the first physical correction.
         # Octic:  L=6 — l=2 and l=4 vanish, l=6 is the first correction.
+        # Mixed potentials break this: in x²/2 + x⁶ + x⁸ the x⁸ term gives
+        # ε_6 = ⟨0|x⁸|0⟩ although 6 mod 4 ≠ 0.
         pot6 = Potential([0.5, 0.0, 0.0, 0.0, 1.0])
         pot8 = Potential([0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0])
         for ν in 0:3
@@ -181,6 +184,7 @@ using Aqua
         end
         @test !iszero(ε_l(pot6, 0, 4))
         @test !iszero(ε_l(pot8, 0, 6))
+        @test ε_l(Potential([1//2, 0//1, 0//1, 0//1, 1//1, 0//1, 1//1]), 0, 6) == 105//16
     end
 
     @testset "find_epoly agrees across BigFloat and Rational precision" begin

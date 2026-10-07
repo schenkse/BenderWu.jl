@@ -226,13 +226,28 @@ cached inside `pot`.
 
 # `l` is the BW recursion index, not the physical perturbation order
 
-Let `L` be the index of the first non-zero entry in `vcoeffs[2:end]` (so `L = 2`
-for a quartic potential, `L = 4` for a sextic, `L = 6` for an octic). Bender–Wu
-indexes corrections by the recursion order `l`, related to the physical
-perturbation order `k` by `l = k·L`. Consequently `ε_l(pot, ν, l) = 0` whenever
-`l mod L ≠ 0` — for a sextic, `ε_l(pot, ν, 2) = 0` and the first non-zero
-correction sits at `l = 4`. See the "Energy corrections" section of the README
-for a worked sextic example.
+`ε_l` is the coefficient of `g^l` in E_ν(g) for the scaled Hamiltonian
+H(g) = -½∂ₓ² + V(gx)/g², where V is the polynomial from `vcoeffs`. A monomial
+`c·x^p` enters H(g) as `c·g^(p-2)·x^p`. Odd orders vanish for every potential
+because g → −g together with x → −x leaves H(g) unchanged.
+
+With a single anharmonic monomial `x^p`, set `L = p − 2`. The physical coupling
+is `λ = g^L`, the k-th order in λ sits at `l = k·L`, and `ε_l = 0` unless `L`
+divides `l`. For a sextic, `ε_l(pot, ν, 2) = 0` and the first nonzero
+correction is at `l = 4`.
+
+With several anharmonic monomials, a nonzero `ε_l` needs `l` to be a sum of
+active indices `p − 2`, repeats allowed. In particular, the gcd of the active
+indices must divide `l`. That condition is necessary but not sufficient, and
+the first nonzero index alone does not decide which orders vanish. For
+V = x²/2 + x⁶ + x⁸ (indices 4 and 6) the x⁸ term contributes at `l = 6`:
+
+```julia
+pot = Potential([1//2, 0//1, 0//1, 0//1, 1//1, 0//1, 1//1])
+ε_l(pot, 0, 6)   # → 105//16
+```
+
+See the "Energy corrections" section of the README for worked examples.
 """
 function ε_l(pot::Potential{T}, ν::Int, l::Int) where T
     # Cheap boundary cases — not worth caching
@@ -315,9 +330,10 @@ end
 Return the 2D array of wave function expansion coefficients A_{k,l}^(ν) up to
 BW recursion order `l` for quantum number `ν`.
 
-The ν-th perturbed eigenstate is expanded as ψ_ν(x) = e^{-ω x² / 2}·∑_l λ^l ∑_k
-A_{k,l}^(ν) · x^k (λ is the coupling). This function returns the full coefficient
-table A_{k,l}^(ν), packed into a single 2D array indexed as `Akl[k+1, l+1]`
+The ν-th perturbed eigenstate is expanded as ψ_ν(x) = e^{-ω x² / 2}·∑_l g^l ∑_k
+A_{k,l}^(ν) · x^k (g is the coupling of H(g), see [`ε_l`](@ref)). This function
+returns the full coefficient table A_{k,l}^(ν), packed into a single 2D array
+indexed as `Akl[k+1, l+1]`
 (1-based offset matches [`fill_Akl!`](@ref)). The k=ν entry of the zeroth-order
 column is fixed by normalisation (`Akl[ν+1, 1] == one(T)`); other entries in
 that column encode the Hermite-like polynomial of the unperturbed eigenstate
@@ -328,8 +344,8 @@ This is a convenience wrapper around [`initialize_Akl_eps`](@ref) followed by
 not the energy-correction array. Element type matches `eltype(pot.vcoeffs)`.
 
 # `l` is the BW recursion index
-See the [`ε_l`](@ref) docstring for the relation `l = k·L` between the BW
-recursion index and the physical perturbation order.
+See the [`ε_l`](@ref) docstring for the relation between `l` and the physical
+perturbation order (single-monomial case: `l = k·L`).
 
 # Example
 ```julia
